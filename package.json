@@ -1,0 +1,22 @@
+{
+  "name": "vizzy",
+  "version": "0.1.0",
+  "scripts": {
+    "clean": "bsb -clean-world",
+    "build": "bsb -make-world",
+    "watch": "bsb -make-world -w",
+    "parcel": "parcel index.html"
+  },
+  "keywords": [
+    "BuckleScript",
+    "visualizer",
+    "algorithms"
+  ],
+  "author": "@samouri",
+  "license": "MIT",
+  "devDependencies": {
+    "bs-platform": "^3.0.0",
+    "bs-webapi": "^0.9.1",
+    "parcel": "^1.8.1"
+  }
+}
