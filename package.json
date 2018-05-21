@@ -1,16 +1,18 @@
 {
-  "name": "vizzy",
+  "name": "buckle-frogger",
   "version": "0.1.0",
   "scripts": {
     "clean": "bsb -clean-world",
     "build": "bsb -make-world",
     "watch": "bsb -make-world -w",
-    "parcel": "parcel index.html"
+    "parcel": "parcel index.html",
+    "format": "refmt --in-place -p ml src/*.ml"
   },
   "keywords": [
     "BuckleScript",
-    "visualizer",
-    "algorithms"
+    "Reason",
+    "Games",
+    "Frogger"
   ],
   "author": "@samouri",
   "license": "MIT",
