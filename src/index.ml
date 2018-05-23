@@ -13,7 +13,7 @@ type keys = {
 }
 
 (*pressed_keys instantiates the keys.*)
-let pressedKeys = {
+let pressedKeys :keys = {
   left = false;
   right = false;
   up = false;
@@ -34,43 +34,69 @@ let keydown (evt:Dom.event) =
 
 
 (* Keyup event handler translates a key release *)
-let keyup (evt:Dom.event) =
-  match (toUnsafe evt)##keyCode with
-  | 38 | 32 | 87 -> pressedKeys.up <- false
-  | 39 | 68 -> pressedKeys.right <- false
-  | 37 | 65 -> pressedKeys.left <- false
-  | 40 | 83 -> pressedKeys.down <- false
-  | _ -> ()
-;;
+(* let keyup (evt:Dom.event) =
+   match (toUnsafe evt)##keyCode with
+   | 38 | 32 | 87 -> pressedKeys.up <- false
+   | 39 | 68 -> pressedKeys.right <- false
+   | 37 | 65 -> pressedKeys.left <- false
+   | 40 | 83 -> pressedKeys.down <- false
+   | _ -> ()
+   ;; *)
 
 (Window.addEventListener "keydown" keydown window );;
-(Window.addEventListener "keyup" keyup window );;
+(* (Window.addEventListener "keyup" keyup window );; *)
 
 let img = HtmlImageElement.make ();;
 (HtmlImageElement.src img spritesUrl);;
 
-type spriteT = {x : int; y: int; width: int; height: int; frames: int; frameIndex: float; frameSpeed: float};;
+type spriteImageT = { xStart: int; yStart: int; frames: int; frameSpeed: float};;
+type spriteT = {
+  x: int;
+  y: int;
+  width: int;
+  height: int;
+  velocity: float;
+  frameIndex: float;
+  currentSprite: spriteImageT;
+  leftSprite: spriteImageT;
+  rightSprite: spriteImageT;
+  upSprite: spriteImageT;
+  downSprite: spriteImageT
+}
 type worldT = { 
   frog: spriteT;
   width: int;
   height: int;
+  keys: keys;
 };;
+
+let makeSprite xStart yStart frames frameSpeed = { 
+  xStart; yStart; frames; frameSpeed;
+};;
+
 let startWorld : worldT = { 
   frog =  { 
     x = 0; y = 0; 
+    currentSprite = makeSprite 0 370 2 20.;
+    upSprite= makeSprite 0 370 2 20.;
+    downSprite= makeSprite 70 370 2 20.;
+    leftSprite= makeSprite 70 335 2 20.;
+    rightSprite= makeSprite 0 335 2 20.;
+    frameIndex = 0.;
     width = 35; height = 30; 
-    frames = 2; frameIndex= 0.; 
-    frameSpeed= 4.; 
+    velocity=  300.;
   };
   width= 760;
   height= 600;
+  keys = pressedKeys;
 };;
 
 let drawSprite ctx sprite = 
   let unsafeCtx = (toUnsafe ctx) in
-  let frogFrame = (int_of_float (sprite.frameIndex /. 1000.)) mod sprite.frames in
-  let startX = (float_of_int frogFrame) *. (float_of_int sprite.width) in 
-  ignore @@ unsafeCtx##drawImage img startX 370 sprite.width sprite.height sprite.x sprite.y sprite.width sprite.height
+  let frameCalc = (int_of_float (sprite.frameIndex /. 1000.)) in
+  let frogFrame = if frameCalc >= sprite.currentSprite.frames then 0 else frameCalc in
+  let startX = (float_of_int sprite.currentSprite.xStart) +. (float_of_int frogFrame) *. (float_of_int sprite.width) in 
+  ignore @@ unsafeCtx##drawImage img startX sprite.currentSprite.yStart sprite.width sprite.height sprite.x sprite.y sprite.width sprite.height
 
 let render ctx world = 
   Canvas2dRe.setFillStyle ctx String "black";
@@ -90,9 +116,22 @@ let rec update ctx world =
   let frog = { world.frog with 
                x = world.frog.x + (int_of_float ( vel *. dt /. 1000.)) * if pressedKeys.left then -1 else if pressedKeys.right then 1 else 0;
                y = world.frog.y + (int_of_float ( vel *. dt /. 1000.)) * if pressedKeys.up then -1 else if pressedKeys.down then 1 else 0;
-               frameIndex = (world.frog.frameIndex +. dt *.world.frog.frameSpeed);
+               currentSprite = if pressedKeys.up then world.frog.upSprite  
+                 else if pressedKeys.down then world.frog.downSprite
+                 else if pressedKeys.left then world.frog.leftSprite 
+                 else if pressedKeys.right then world.frog.rightSprite 
+                 else world.frog.currentSprite;
+               frameIndex = if (pressedKeys.down || pressedKeys.up || pressedKeys.left || pressedKeys.right) then 0.
+                 else (world.frog.frameIndex +. dt *.world.frog.currentSprite.frameSpeed);
              } in 
-  let newWorld = {world with frog  } in
+
+  (* we want to reset directional pressedKeys after we process it once since frogger doesn't continously move, he jumps  *)
+  pressedKeys.left <- false;
+  pressedKeys.right <- false;
+  pressedKeys.up <- false;
+  pressedKeys.down <- false;
+  let newWorld = {world with frog } in
+  Js.log world;
   (Webapi.requestAnimationFrame (fun dt -> (update ctx newWorld )))
 ;;
 
