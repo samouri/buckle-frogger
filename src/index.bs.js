@@ -6,6 +6,151 @@ var Canvas2dRe = require("bs-webapi/src/canvas/Canvas2dRe.js");
 var Pervasives = require("bs-platform/lib/js/pervasives.js");
 var Frogger_spritesPng = require("../assets/frogger_sprites.png");
 
+var pressedKeys = /* record */[
+  /* left */false,
+  /* right */false,
+  /* up */false,
+  /* down */false,
+  /* bbox */0
+];
+
+function keydown(evt) {
+  var match = evt.keyCode;
+  var exit = 0;
+  if (match >= 41) {
+    var switcher = match - 65 | 0;
+    if (switcher > 22 || switcher < 0) {
+      exit = 1;
+    } else {
+      switch (switcher) {
+        case 0 : 
+            pressedKeys[/* left */0] = true;
+            return /* () */0;
+        case 1 : 
+            pressedKeys[/* bbox */4] = (pressedKeys[/* bbox */4] + 1 | 0) % 2;
+            return /* () */0;
+        case 3 : 
+            pressedKeys[/* right */1] = true;
+            return /* () */0;
+        case 18 : 
+            pressedKeys[/* down */3] = true;
+            return /* () */0;
+        case 2 : 
+        case 4 : 
+        case 5 : 
+        case 6 : 
+        case 7 : 
+        case 8 : 
+        case 9 : 
+        case 10 : 
+        case 11 : 
+        case 12 : 
+        case 13 : 
+        case 14 : 
+        case 15 : 
+        case 16 : 
+        case 17 : 
+        case 19 : 
+        case 20 : 
+        case 21 : 
+            exit = 1;
+            break;
+        case 22 : 
+            pressedKeys[/* up */2] = true;
+            return /* () */0;
+        
+      }
+    }
+  } else if (match >= 32) {
+    switch (match - 32 | 0) {
+      case 1 : 
+      case 2 : 
+      case 3 : 
+      case 4 : 
+          exit = 1;
+          break;
+      case 5 : 
+          pressedKeys[/* left */0] = true;
+          return /* () */0;
+      case 0 : 
+      case 6 : 
+          pressedKeys[/* up */2] = true;
+          return /* () */0;
+      case 7 : 
+          pressedKeys[/* right */1] = true;
+          return /* () */0;
+      case 8 : 
+          pressedKeys[/* down */3] = true;
+          return /* () */0;
+      
+    }
+  } else {
+    exit = 1;
+  }
+  if (exit === 1) {
+    console.log("did not find nothing" + evt.keyCode);
+    return /* () */0;
+  }
+  
+}
+
+function keyup(evt) {
+  var match = evt.keyCode;
+  if (match >= 68) {
+    if (match !== 83) {
+      if (match !== 87) {
+        if (match >= 69) {
+          return /* () */0;
+        } else {
+          pressedKeys[/* right */1] = false;
+          return /* () */0;
+        }
+      } else {
+        pressedKeys[/* up */2] = false;
+        return /* () */0;
+      }
+    } else {
+      pressedKeys[/* down */3] = false;
+      return /* () */0;
+    }
+  } else if (match >= 41) {
+    if (match !== 65) {
+      return /* () */0;
+    } else {
+      pressedKeys[/* left */0] = false;
+      return /* () */0;
+    }
+  } else if (match >= 32) {
+    switch (match - 32 | 0) {
+      case 1 : 
+      case 2 : 
+      case 3 : 
+      case 4 : 
+          return /* () */0;
+      case 5 : 
+          pressedKeys[/* left */0] = false;
+          return /* () */0;
+      case 0 : 
+      case 6 : 
+          pressedKeys[/* up */2] = false;
+          return /* () */0;
+      case 7 : 
+          pressedKeys[/* right */1] = false;
+          return /* () */0;
+      case 8 : 
+          pressedKeys[/* down */3] = false;
+          return /* () */0;
+      
+    }
+  } else {
+    return /* () */0;
+  }
+}
+
+window.addEventListener("keydown", keydown);
+
+window.addEventListener("keyup", keyup);
+
 var img = new Image();
 
 img.src = Frogger_spritesPng;
@@ -27,7 +172,7 @@ var startWorld = /* record */[
 function drawSprite(ctx, sprite) {
   var frogFrame = Caml_int32.mod_(sprite[/* frameIndex */5] / 1000 | 0, sprite[/* frames */4]);
   var startX = frogFrame * sprite[/* width */2];
-  ctx.drawImage(img, startX, 370, sprite[/* width */2], sprite[/* height */3], 0, 300, sprite[/* width */2], sprite[/* height */3]);
+  ctx.drawImage(img, startX, 370, sprite[/* width */2], sprite[/* height */3], sprite[/* x */0], sprite[/* y */1], sprite[/* width */2], sprite[/* height */3]);
   return /* () */0;
 }
 
@@ -45,19 +190,30 @@ function update(ctx, world) {
   render(ctx, world);
   lastTime[0] = Date.now();
   var init = world[/* frog */0];
-  var newWorld_000 = /* frog : record */[
-    /* x */init[/* x */0],
-    /* y */init[/* y */1],
-    /* width */init[/* width */2],
-    /* height */init[/* height */3],
-    /* frames */init[/* frames */4],
-    /* frameIndex */world[/* frog */0][/* frameIndex */5] + dt * world[/* frog */0][/* frameSpeed */6],
-    /* frameSpeed */init[/* frameSpeed */6]
+  var frog_000 = /* x */world[/* frog */0][/* x */0] + Caml_int32.imul(500 * dt / 1000 | 0, pressedKeys[/* left */0] ? -1 : (
+          pressedKeys[/* right */1] ? 1 : 0
+        )) | 0;
+  var frog_001 = /* y */world[/* frog */0][/* y */1] + Caml_int32.imul(500 * dt / 1000 | 0, pressedKeys[/* up */2] ? -1 : (
+          pressedKeys[/* down */3] ? 1 : 0
+        )) | 0;
+  var frog_002 = /* width */init[/* width */2];
+  var frog_003 = /* height */init[/* height */3];
+  var frog_004 = /* frames */init[/* frames */4];
+  var frog_005 = /* frameIndex */world[/* frog */0][/* frameIndex */5] + dt * world[/* frog */0][/* frameSpeed */6];
+  var frog_006 = /* frameSpeed */init[/* frameSpeed */6];
+  var frog = /* record */[
+    frog_000,
+    frog_001,
+    frog_002,
+    frog_003,
+    frog_004,
+    frog_005,
+    frog_006
   ];
   var newWorld_001 = /* width */world[/* width */1];
   var newWorld_002 = /* height */world[/* height */2];
   var newWorld = /* record */[
-    newWorld_000,
+    /* frog */frog,
     newWorld_001,
     newWorld_002
   ];
@@ -78,6 +234,9 @@ function load() {
 
 window.onload = load;
 
+exports.pressedKeys = pressedKeys;
+exports.keydown = keydown;
+exports.keyup = keyup;
 exports.img = img;
 exports.startWorld = startWorld;
 exports.drawSprite = drawSprite;
@@ -85,4 +244,4 @@ exports.render = render;
 exports.lastTime = lastTime;
 exports.update = update;
 exports.load = load;
-/* img Not a pure module */
+/*  Not a pure module */

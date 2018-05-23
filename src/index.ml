@@ -1,8 +1,50 @@
 open Webapi.Dom
-external canvasRenderingContext2DToJsObj : Canvas2dRe.t -> < .. > Js.t = "%identity"
-
-
+external toUnsafe : 'a -> < .. > Js.t = "%identity"
 external spritesUrl: string = "../assets/frogger_sprites.png" [@@bs.module];;
+
+
+(* Represents the values of relevant key bindings. *)
+type keys = {
+  mutable left: bool;
+  mutable right: bool;
+  mutable up: bool;
+  mutable down: bool;
+  mutable bbox: int;
+}
+
+(*pressed_keys instantiates the keys.*)
+let pressedKeys = {
+  left = false;
+  right = false;
+  up = false;
+  down = false;
+  bbox = 0;
+};;
+
+(* Keydown event handler translates a key press *)
+let keydown (evt:Dom.event) =
+  match (toUnsafe evt)##keyCode with
+  | 38 | 32 | 87 -> pressedKeys.up <- true
+  | 39 | 68 -> pressedKeys.right <- true
+  | 37 | 65 -> pressedKeys.left <- true
+  | 40 | 83 -> pressedKeys.down <- true
+  | 66 -> pressedKeys.bbox <- (pressedKeys.bbox + 1) mod 2
+  | _ -> Js.log ("did not find nothing" ^ ((toUnsafe evt)##keyCode))
+;;
+
+
+(* Keyup event handler translates a key release *)
+let keyup (evt:Dom.event) =
+  match (toUnsafe evt)##keyCode with
+  | 38 | 32 | 87 -> pressedKeys.up <- false
+  | 39 | 68 -> pressedKeys.right <- false
+  | 37 | 65 -> pressedKeys.left <- false
+  | 40 | 83 -> pressedKeys.down <- false
+  | _ -> ()
+;;
+
+(Window.addEventListener "keydown" keydown window );;
+(Window.addEventListener "keyup" keyup window );;
 
 let img = HtmlImageElement.make ();;
 (HtmlImageElement.src img spritesUrl);;
@@ -25,10 +67,10 @@ let startWorld : worldT = {
 };;
 
 let drawSprite ctx sprite = 
-  let unsafeCtx = (canvasRenderingContext2DToJsObj ctx) in
+  let unsafeCtx = (toUnsafe ctx) in
   let frogFrame = (int_of_float (sprite.frameIndex /. 1000.)) mod sprite.frames in
   let startX = (float_of_int frogFrame) *. (float_of_int sprite.width) in 
-  ignore @@ unsafeCtx##drawImage img startX 370 sprite.width sprite.height 0 300 sprite.width sprite.height
+  ignore @@ unsafeCtx##drawImage img startX 370 sprite.width sprite.height sprite.x sprite.y sprite.width sprite.height
 
 let render ctx world = 
   Canvas2dRe.setFillStyle ctx String "black";
@@ -44,7 +86,13 @@ let rec update ctx world =
   (render ctx world);
 
   lastTime := Js.Date.now ();
-  let newWorld = {world with frog = { world.frog with frameIndex = (world.frog.frameIndex +. dt *.world.frog.frameSpeed) }; } in
+  let vel = 500. in
+  let frog = { world.frog with 
+               x = world.frog.x + (int_of_float ( vel *. dt /. 1000.)) * if pressedKeys.left then -1 else if pressedKeys.right then 1 else 0;
+               y = world.frog.y + (int_of_float ( vel *. dt /. 1000.)) * if pressedKeys.up then -1 else if pressedKeys.down then 1 else 0;
+               frameIndex = (world.frog.frameIndex +. dt *.world.frog.frameSpeed);
+             } in 
+  let newWorld = {world with frog  } in
   (Webapi.requestAnimationFrame (fun dt -> (update ctx newWorld )))
 ;;
 
@@ -61,5 +109,6 @@ let load _ =
   let context = CanvasRe.CanvasElement.getContext2d canvas in
   (update context startWorld);
 ;;
+
 
 let _ = Window.setOnLoad window load
