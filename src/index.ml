@@ -13,7 +13,7 @@ type keys = {
 }
 
 (*pressed_keys instantiates the keys.*)
-let pressedKeys :keys = {
+let pressedKeys = {
   left = false;
   right = false;
   up = false;
@@ -55,7 +55,7 @@ type spriteT = {
   y: int;
   width: int;
   height: int;
-  velocity: float;
+  (* velocity: float; *)
   frameIndex: float;
   currentSprite: spriteImageT;
   leftSprite: spriteImageT;
@@ -70,13 +70,19 @@ type worldT = {
   keys: keys;
 };;
 
+let rowheight = 30;;
+let colwidth = 42;;
+
 let makeSprite xStart yStart frames frameSpeed = { 
   xStart; yStart; frames; frameSpeed;
 };;
 
+let worldHeight = 440;;
+let worldWidth = 400;;
+
 let startWorld : worldT = { 
   frog =  { 
-    x = 0; y = 0; 
+    x = worldWidth / 2 - 25; y = 387; 
     currentSprite = makeSprite 0 370 2 20.;
     upSprite= makeSprite 0 370 2 20.;
     downSprite= makeSprite 70 370 2 20.;
@@ -84,24 +90,36 @@ let startWorld : worldT = {
     rightSprite= makeSprite 0 335 2 20.;
     frameIndex = 0.;
     width = 35; height = 30; 
-    velocity=  300.;
   };
-  width= 760;
-  height= 600;
+  width = worldWidth;
+  height = worldHeight;
   keys = pressedKeys;
 };;
+
+let magnification = 1;; (* visual scaling multiplier *)
 
 let drawSprite ctx sprite = 
   let unsafeCtx = (toUnsafe ctx) in
   let frameCalc = (int_of_float (sprite.frameIndex /. 1000.)) in
   let frogFrame = if frameCalc >= sprite.currentSprite.frames then 0 else frameCalc in
   let startX = (float_of_int sprite.currentSprite.xStart) +. (float_of_int frogFrame) *. (float_of_int sprite.width) in 
-  ignore @@ unsafeCtx##drawImage img startX sprite.currentSprite.yStart sprite.width sprite.height sprite.x sprite.y sprite.width sprite.height
+  ignore @@ unsafeCtx##drawImage img startX sprite.currentSprite.yStart sprite.width sprite.height sprite.x sprite.y (magnification * sprite.width) (magnification * sprite.height)
+
+let drawGoal ctx = 
+  let unsafeCtx = (toUnsafe ctx) in
+  ignore @@ unsafeCtx##drawImage img 0 62 worldWidth 45 0 0 (magnification * worldWidth) (magnification * 50);;
+
+let drawGrass ctx y = 
+  let unsafeCtx = (toUnsafe ctx) in
+  ignore @@ unsafeCtx##drawImage img 0 120 worldWidth 33 0 y (magnification * worldWidth) (magnification * 33);;
 
 let render ctx world = 
   Canvas2dRe.setFillStyle ctx String "black";
   Canvas2dRe.fillRect ctx ~x:0. ~y:0. ~h: (float_of_int world.height) ~w:(float_of_int world.width);
-  (drawSprite ctx world.frog)
+  (drawGoal ctx);
+  (drawGrass ctx (world.height - 60));
+  (drawGrass ctx (world.height - 60 - (rowheight * 6)));
+  (drawSprite ctx world.frog);
 ;;
 
 let lastTime = ref (Js.Date.now ());;
@@ -112,10 +130,9 @@ let rec update ctx world =
   (render ctx world);
 
   lastTime := Js.Date.now ();
-  let vel = 500. in
   let frog = { world.frog with 
-               x = world.frog.x + (int_of_float ( vel *. dt /. 1000.)) * if pressedKeys.left then -1 else if pressedKeys.right then 1 else 0;
-               y = world.frog.y + (int_of_float ( vel *. dt /. 1000.)) * if pressedKeys.up then -1 else if pressedKeys.down then 1 else 0;
+               x = world.frog.x + (colwidth ) * if pressedKeys.left then -1 else if pressedKeys.right then 1 else 0;
+               y = world.frog.y + (rowheight) * if pressedKeys.up then -1 else if pressedKeys.down then 1 else 0;
                currentSprite = if pressedKeys.up then world.frog.upSprite  
                  else if pressedKeys.down then world.frog.downSprite
                  else if pressedKeys.left then world.frog.leftSprite 

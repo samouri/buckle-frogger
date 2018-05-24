@@ -110,11 +110,10 @@ function makeSprite(xStart, yStart, frames, frameSpeed) {
 }
 
 var startWorld_000 = /* frog : record */[
-  /* x */0,
-  /* y */0,
+  /* x */175,
+  /* y */387,
   /* width */35,
   /* height */30,
-  /* velocity */300,
   /* frameIndex */0,
   /* currentSprite : record */[
     /* xStart */0,
@@ -150,22 +149,35 @@ var startWorld_000 = /* frog : record */[
 
 var startWorld = /* record */[
   startWorld_000,
-  /* width */760,
-  /* height */600,
+  /* width */400,
+  /* height */440,
   /* keys */pressedKeys
 ];
 
 function drawSprite(ctx, sprite) {
-  var frameCalc = sprite[/* frameIndex */5] / 1000 | 0;
-  var frogFrame = frameCalc >= sprite[/* currentSprite */6][/* frames */2] ? 0 : frameCalc;
-  var startX = sprite[/* currentSprite */6][/* xStart */0] + frogFrame * sprite[/* width */2];
-  ctx.drawImage(img, startX, sprite[/* currentSprite */6][/* yStart */1], sprite[/* width */2], sprite[/* height */3], sprite[/* x */0], sprite[/* y */1], sprite[/* width */2], sprite[/* height */3]);
+  var frameCalc = sprite[/* frameIndex */4] / 1000 | 0;
+  var frogFrame = frameCalc >= sprite[/* currentSprite */5][/* frames */2] ? 0 : frameCalc;
+  var startX = sprite[/* currentSprite */5][/* xStart */0] + frogFrame * sprite[/* width */2];
+  ctx.drawImage(img, startX, sprite[/* currentSprite */5][/* yStart */1], sprite[/* width */2], sprite[/* height */3], sprite[/* x */0], sprite[/* y */1], (sprite[/* width */2] << 0), (sprite[/* height */3] << 0));
+  return /* () */0;
+}
+
+function drawGoal(ctx) {
+  ctx.drawImage(img, 0, 62, 400, 45, 0, 0, 400, 50);
+  return /* () */0;
+}
+
+function drawGrass(ctx, y) {
+  ctx.drawImage(img, 0, 120, 400, 33, 0, y, 400, 33);
   return /* () */0;
 }
 
 function render(ctx, world) {
   Canvas2dRe.setFillStyle(ctx, /* String */0, "black");
   ctx.fillRect(0, 0, world[/* width */1], world[/* height */2]);
+  drawGoal(ctx);
+  drawGrass(ctx, world[/* height */2] - 60 | 0);
+  drawGrass(ctx, (world[/* height */2] - 60 | 0) - 180 | 0);
   return drawSprite(ctx, world[/* frog */0]);
 }
 
@@ -177,27 +189,26 @@ function update(ctx, world) {
   render(ctx, world);
   lastTime[0] = Date.now();
   var init = world[/* frog */0];
-  var frog_000 = /* x */world[/* frog */0][/* x */0] + Caml_int32.imul(500 * dt / 1000 | 0, pressedKeys[/* left */0] ? -1 : (
+  var frog_000 = /* x */world[/* frog */0][/* x */0] + Caml_int32.imul(42, pressedKeys[/* left */0] ? -1 : (
           pressedKeys[/* right */1] ? 1 : 0
         )) | 0;
-  var frog_001 = /* y */world[/* frog */0][/* y */1] + Caml_int32.imul(500 * dt / 1000 | 0, pressedKeys[/* up */2] ? -1 : (
+  var frog_001 = /* y */world[/* frog */0][/* y */1] + Caml_int32.imul(30, pressedKeys[/* up */2] ? -1 : (
           pressedKeys[/* down */3] ? 1 : 0
         )) | 0;
   var frog_002 = /* width */init[/* width */2];
   var frog_003 = /* height */init[/* height */3];
-  var frog_004 = /* velocity */init[/* velocity */4];
-  var frog_005 = /* frameIndex */pressedKeys[/* down */3] || pressedKeys[/* up */2] || pressedKeys[/* left */0] || pressedKeys[/* right */1] ? 0 : world[/* frog */0][/* frameIndex */5] + dt * world[/* frog */0][/* currentSprite */6][/* frameSpeed */3];
-  var frog_006 = /* currentSprite */pressedKeys[/* up */2] ? world[/* frog */0][/* upSprite */9] : (
-      pressedKeys[/* down */3] ? world[/* frog */0][/* downSprite */10] : (
-          pressedKeys[/* left */0] ? world[/* frog */0][/* leftSprite */7] : (
-              pressedKeys[/* right */1] ? world[/* frog */0][/* rightSprite */8] : world[/* frog */0][/* currentSprite */6]
+  var frog_004 = /* frameIndex */pressedKeys[/* down */3] || pressedKeys[/* up */2] || pressedKeys[/* left */0] || pressedKeys[/* right */1] ? 0 : world[/* frog */0][/* frameIndex */4] + dt * world[/* frog */0][/* currentSprite */5][/* frameSpeed */3];
+  var frog_005 = /* currentSprite */pressedKeys[/* up */2] ? world[/* frog */0][/* upSprite */8] : (
+      pressedKeys[/* down */3] ? world[/* frog */0][/* downSprite */9] : (
+          pressedKeys[/* left */0] ? world[/* frog */0][/* leftSprite */6] : (
+              pressedKeys[/* right */1] ? world[/* frog */0][/* rightSprite */7] : world[/* frog */0][/* currentSprite */5]
             )
         )
     );
-  var frog_007 = /* leftSprite */init[/* leftSprite */7];
-  var frog_008 = /* rightSprite */init[/* rightSprite */8];
-  var frog_009 = /* upSprite */init[/* upSprite */9];
-  var frog_010 = /* downSprite */init[/* downSprite */10];
+  var frog_006 = /* leftSprite */init[/* leftSprite */6];
+  var frog_007 = /* rightSprite */init[/* rightSprite */7];
+  var frog_008 = /* upSprite */init[/* upSprite */8];
+  var frog_009 = /* downSprite */init[/* downSprite */9];
   var frog = /* record */[
     frog_000,
     frog_001,
@@ -208,8 +219,7 @@ function update(ctx, world) {
     frog_006,
     frog_007,
     frog_008,
-    frog_009,
-    frog_010
+    frog_009
   ];
   pressedKeys[/* left */0] = false;
   pressedKeys[/* right */1] = false;
@@ -234,20 +244,37 @@ function update(ctx, world) {
 function load() {
   var match = document.getElementById("canvas");
   var canvas = (match == null) ? (console.log("cant find canvas canvas \n"), Pervasives.failwith("fail")) : match;
-  canvas.setAttribute("height", String(600) + "px");
-  canvas.setAttribute("width", String(760) + "px");
+  canvas.setAttribute("height", String(440) + "px");
+  canvas.setAttribute("width", String(400) + "px");
   var context = canvas.getContext("2d");
   return update(context, startWorld);
 }
 
 window.onload = load;
 
+var rowheight = 30;
+
+var colwidth = 42;
+
+var worldHeight = 440;
+
+var worldWidth = 400;
+
+var magnification = 1;
+
 exports.pressedKeys = pressedKeys;
 exports.keydown = keydown;
 exports.img = img;
+exports.rowheight = rowheight;
+exports.colwidth = colwidth;
 exports.makeSprite = makeSprite;
+exports.worldHeight = worldHeight;
+exports.worldWidth = worldWidth;
 exports.startWorld = startWorld;
+exports.magnification = magnification;
 exports.drawSprite = drawSprite;
+exports.drawGoal = drawGoal;
+exports.drawGrass = drawGrass;
 exports.render = render;
 exports.lastTime = lastTime;
 exports.update = update;
