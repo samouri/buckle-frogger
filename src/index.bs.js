@@ -154,7 +154,7 @@ var startWorld = /* record */[
   /* keys */pressedKeys
 ];
 
-function drawSprite(ctx, sprite) {
+function drawFrog(ctx, sprite) {
   var frameCalc = sprite[/* frameIndex */4] / 1000 | 0;
   var frogFrame = frameCalc >= sprite[/* currentSprite */5][/* frames */2] ? 0 : frameCalc;
   var startX = sprite[/* currentSprite */5][/* xStart */0] + frogFrame * sprite[/* width */2];
@@ -172,13 +172,19 @@ function drawGrass(ctx, y) {
   return /* () */0;
 }
 
+function drawCar(ctx, y) {
+  ctx.drawImage(img, 80, 260, 30, 33, 0, y, 33, 30);
+  return /* () */0;
+}
+
 function render(ctx, world) {
   Canvas2dRe.setFillStyle(ctx, /* String */0, "black");
   ctx.fillRect(0, 0, world[/* width */1], world[/* height */2]);
   drawGoal(ctx);
   drawGrass(ctx, world[/* height */2] - 60 | 0);
   drawGrass(ctx, (world[/* height */2] - 60 | 0) - 180 | 0);
-  return drawSprite(ctx, world[/* frog */0]);
+  drawCar(ctx, ((world[/* height */2] - 60 | 0) - 30 | 0) - 5 | 0);
+  return drawFrog(ctx, world[/* frog */0]);
 }
 
 var lastTime = [Date.now()];
@@ -272,9 +278,10 @@ exports.worldHeight = worldHeight;
 exports.worldWidth = worldWidth;
 exports.startWorld = startWorld;
 exports.magnification = magnification;
-exports.drawSprite = drawSprite;
+exports.drawFrog = drawFrog;
 exports.drawGoal = drawGoal;
 exports.drawGrass = drawGrass;
+exports.drawCar = drawCar;
 exports.render = render;
 exports.lastTime = lastTime;
 exports.update = update;

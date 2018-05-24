@@ -98,7 +98,7 @@ let startWorld : worldT = {
 
 let magnification = 1;; (* visual scaling multiplier *)
 
-let drawSprite ctx sprite = 
+let drawFrog ctx sprite = 
   let unsafeCtx = (toUnsafe ctx) in
   let frameCalc = (int_of_float (sprite.frameIndex /. 1000.)) in
   let frogFrame = if frameCalc >= sprite.currentSprite.frames then 0 else frameCalc in
@@ -113,13 +113,18 @@ let drawGrass ctx y =
   let unsafeCtx = (toUnsafe ctx) in
   ignore @@ unsafeCtx##drawImage img 0 120 worldWidth 33 0 y (magnification * worldWidth) (magnification * 33);;
 
+let drawCar ctx y = 
+  let unsafeCtx = (toUnsafe ctx) in
+  ignore @@ unsafeCtx##drawImage img 80 260 30 33 0 y (magnification * 33) (magnification * 30);;
+
 let render ctx world = 
   Canvas2dRe.setFillStyle ctx String "black";
   Canvas2dRe.fillRect ctx ~x:0. ~y:0. ~h: (float_of_int world.height) ~w:(float_of_int world.width);
   (drawGoal ctx);
   (drawGrass ctx (world.height - 60));
   (drawGrass ctx (world.height - 60 - (rowheight * 6)));
-  (drawSprite ctx world.frog);
+  (drawCar ctx (world.height - 60 - (rowheight * 1) - 5));
+  (drawFrog ctx world.frog);
 ;;
 
 let lastTime = ref (Js.Date.now ());;
