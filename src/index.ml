@@ -51,46 +51,71 @@ let img = HtmlImageElement.make ();;
 
 type spriteImageT = { xStart: int; yStart: int; frames: int; frameSpeed: float};;
 type spriteT = {
-  x: int;
-  y: int;
+  x: float;
+  y: float;
   width: int;
   height: int;
-  (* velocity: float; *)
   frameIndex: float;
   currentSprite: spriteImageT;
-  leftSprite: spriteImageT;
-  rightSprite: spriteImageT;
-  upSprite: spriteImageT;
-  downSprite: spriteImageT
 }
+
+type carT = {
+  row: int;
+  (* velocity: float; *)
+  sprite: spriteT;
+};;
+
 type worldT = { 
   frog: spriteT;
   width: int;
   height: int;
   keys: keys;
+  cars: carT list;
 };;
 
 let rowheight = 30;;
 let colwidth = 42;;
 
-let makeSprite xStart yStart frames frameSpeed = { 
+let makeSpriteImage xStart yStart frames frameSpeed = { 
   xStart; yStart; frames; frameSpeed;
 };;
+
 
 let worldHeight = 440;;
 let worldWidth = 400;;
 
+let yellowCarImage = makeSpriteImage 80 260 0 0.;;
+let greenCarImage = makeSpriteImage 80 260 0 0.;;
+
+let makeCar row img = 
+  {
+    row;
+    sprite = {
+      currentSprite = img;
+      x = float_of_int worldWidth;
+      y = float_of_int (worldHeight - 62 - (row * rowheight));
+      frameIndex = 0.;
+      width = 33;
+      height = 30;
+    }
+  };;
+
+type frogSpritesT = { upSprite: spriteImageT; downSprite: spriteImageT; leftSprite: spriteImageT; rightSprite: spriteImageT };;
+let frogSprites = {
+  upSprite= makeSpriteImage 0 370 2 20.;
+  downSprite= makeSpriteImage 70 370 2 20.;
+  leftSprite= makeSpriteImage 70 335 2 20.;
+  rightSprite= makeSpriteImage 0 335 2 20.;
+};;
+
 let startWorld : worldT = { 
-  frog =  { 
-    x = worldWidth / 2 - 25; y = 387; 
-    currentSprite = makeSprite 0 370 2 20.;
-    upSprite= makeSprite 0 370 2 20.;
-    downSprite= makeSprite 70 370 2 20.;
-    leftSprite= makeSprite 70 335 2 20.;
-    rightSprite= makeSprite 0 335 2 20.;
+  frog = { 
+    x = float_of_int (worldWidth / 2 - 25); y = 387.; 
+    currentSprite = frogSprites.upSprite;
     frameIndex = 0.;
     width = 35; height = 30; 
   };
+  cars = [];
   width = worldWidth;
   height = worldHeight;
   keys = pressedKeys;
@@ -98,7 +123,7 @@ let startWorld : worldT = {
 
 let magnification = 1;; (* visual scaling multiplier *)
 
-let drawFrog ctx sprite = 
+let drawSprite ctx sprite = 
   let unsafeCtx = (toUnsafe ctx) in
   let frameCalc = (int_of_float (sprite.frameIndex /. 1000.)) in
   let frogFrame = if frameCalc >= sprite.currentSprite.frames then 0 else frameCalc in
@@ -113,9 +138,41 @@ let drawGrass ctx y =
   let unsafeCtx = (toUnsafe ctx) in
   ignore @@ unsafeCtx##drawImage img 0 120 worldWidth 33 0 y (magnification * worldWidth) (magnification * 33);;
 
-let drawCar ctx y = 
-  let unsafeCtx = (toUnsafe ctx) in
-  ignore @@ unsafeCtx##drawImage img 80 260 30 33 0 y (magnification * 33) (magnification * 30);;
+let rec drawCars ctx cars = 
+  match cars with 
+  | [] -> ();
+  | hd::tl -> drawSprite ctx hd.sprite; (drawCars ctx tl)
+;;
+
+type carsData = {
+  velocity: float;
+  carsAtOnceIsh: int;
+  lastMade: float;
+  image: spriteImageT
+};;
+
+(* velocities is measured in percent screen crossed per second *)
+let carConfig = [|
+  (* 0 *) { velocity = 0.; carsAtOnceIsh = 0; lastMade = 0.; image = yellowCarImage};
+  (* 1 *) { velocity = 5.; carsAtOnceIsh = 3; lastMade = 0.; image = yellowCarImage};
+  (* 2 *) { velocity = 3.; carsAtOnceIsh = 3; lastMade = 0.; image = yellowCarImage};
+  (* 3 *)
+  (* 4 *)
+  (* 5 *)
+|];;
+
+let updateCar car dt = { car with sprite = { 
+    car.sprite with x = let rowConfig = (Array.get carConfig car.row ) in 
+                      let rowSpeed = (float_of_int worldWidth) /. rowConfig.velocity in 
+                      car.sprite.x -. (rowSpeed *. dt /. 1000.) 
+  } };;
+
+let rec updateCars cars dt = 
+  match cars with 
+  | [] -> [];
+  | hd::tl -> (updateCar hd dt) :: (updateCars tl dt)
+;;
+
 
 let render ctx world = 
   Canvas2dRe.setFillStyle ctx String "black";
@@ -123,11 +180,13 @@ let render ctx world =
   (drawGoal ctx);
   (drawGrass ctx (world.height - 60));
   (drawGrass ctx (world.height - 60 - (rowheight * 6)));
-  (drawCar ctx (world.height - 60 - (rowheight * 1) - 5));
-  (drawFrog ctx world.frog);
+  (drawCars ctx world.cars);
+  (drawSprite ctx world.frog);
 ;;
 
 let lastTime = ref (Js.Date.now ());;
+let lastCarTime = ref 0.;;
+let lastRowProbabilities = [| 0; 3; 2 |] (* how many cars-ish you should expect at any one time *)
 
 let rec update ctx world = 
   let now = Js.Date.now () in
@@ -136,24 +195,29 @@ let rec update ctx world =
 
   lastTime := Js.Date.now ();
   let frog = { world.frog with 
-               x = world.frog.x + (colwidth ) * if pressedKeys.left then -1 else if pressedKeys.right then 1 else 0;
-               y = world.frog.y + (rowheight) * if pressedKeys.up then -1 else if pressedKeys.down then 1 else 0;
-               currentSprite = if pressedKeys.up then world.frog.upSprite  
-                 else if pressedKeys.down then world.frog.downSprite
-                 else if pressedKeys.left then world.frog.leftSprite 
-                 else if pressedKeys.right then world.frog.rightSprite 
+               x = world.frog.x +. (float_of_int colwidth ) *. if pressedKeys.left then -1. else if pressedKeys.right then 1. else 0.;
+               y = world.frog.y +. (float_of_int rowheight) *. if pressedKeys.up then -1. else if pressedKeys.down then 1. else 0.;
+               currentSprite = if pressedKeys.up then frogSprites.upSprite  
+                 else if pressedKeys.down then frogSprites.downSprite
+                 else if pressedKeys.left then frogSprites.leftSprite 
+                 else if pressedKeys.right then frogSprites.rightSprite 
                  else world.frog.currentSprite;
                frameIndex = if (pressedKeys.down || pressedKeys.up || pressedKeys.left || pressedKeys.right) then 0.
                  else (world.frog.frameIndex +. dt *.world.frog.currentSprite.frameSpeed);
              } in 
+  let movedCars = (updateCars world.cars dt) in
+  let cars = if now -. !lastCarTime > 5000. then 
+      (makeCar 1 yellowCarImage) :: (makeCar 2 greenCarImage):: movedCars
+    else movedCars in 
+  if now -. !lastCarTime > 5000. then lastCarTime := now;
+
 
   (* we want to reset directional pressedKeys after we process it once since frogger doesn't continously move, he jumps  *)
   pressedKeys.left <- false;
   pressedKeys.right <- false;
   pressedKeys.up <- false;
   pressedKeys.down <- false;
-  let newWorld = {world with frog } in
-  Js.log world;
+  let newWorld = {world with frog; cars; } in
   (Webapi.requestAnimationFrame (fun dt -> (update ctx newWorld )))
 ;;
 
