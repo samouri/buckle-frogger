@@ -2,6 +2,16 @@ open Webapi.Dom
 external toUnsafe : 'a -> < .. > Js.t = "%identity"
 external spritesUrl: string = "../assets/frogger_sprites.png" [@@bs.module];;
 
+let isSome = function 
+  | Some _ -> true 
+  | None -> false;;
+
+let deoptionalize lst = 
+  List.filter isSome lst
+  |> List.map (function 
+      | Some x -> x 
+      | None -> assert false
+    )
 
 (* Represents the values of relevant key bindings. *)
 type keys = {
@@ -85,17 +95,20 @@ let worldHeight = 440;;
 let worldWidth = 400;;
 
 let yellowCarImage = makeSpriteImage 80 260 0 0.;;
-let greenCarImage = makeSpriteImage 80 260 0 0.;;
+let greenCarImage = makeSpriteImage 70 290 0 0.;;
+let pinkCarImage = makeSpriteImage 10 260 0 0.;;
+let raceCarImage = makeSpriteImage 40 260 0 0.;;
+let whiteTruckImage = makeSpriteImage 110 290 0 0.;;
 
 let makeCar row img = 
   {
     row;
     sprite = {
       currentSprite = img;
-      x = float_of_int worldWidth;
+      x = if row mod 2 = 0 then -30. else float_of_int worldWidth;
       y = float_of_int (worldHeight - 62 - (row * rowheight));
       frameIndex = 0.;
-      width = 33;
+      width = if row = 5 then 66 else 33;
       height = 30;
     }
   };;
@@ -147,24 +160,29 @@ let rec drawCars ctx cars =
 type carsData = {
   velocity: float;
   carsAtOnceIsh: int;
-  lastMade: float;
+  mutable nextSpawnTime: float;
+  (* mutable nextMake: flaot; *)
   image: spriteImageT
 };;
 
+let getJitter () = float_of_int (Random.int 1000 );;
+let getJitterFromNow () = (Js.Date.now ()) +. (getJitter ());;
+
 (* velocities is measured in percent screen crossed per second *)
 let carConfig = [|
-  (* 0 *) { velocity = 0.; carsAtOnceIsh = 0; lastMade = 0.; image = yellowCarImage};
-  (* 1 *) { velocity = 5.; carsAtOnceIsh = 3; lastMade = 0.; image = yellowCarImage};
-  (* 2 *) { velocity = 3.; carsAtOnceIsh = 3; lastMade = 0.; image = yellowCarImage};
-  (* 3 *)
-  (* 4 *)
-  (* 5 *)
+  (* 0 *) { velocity = 0.; carsAtOnceIsh = 0; nextSpawnTime = (getJitterFromNow ()); image = yellowCarImage};
+  (* 1 *) { velocity = 10.; carsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); image = yellowCarImage};
+  (* 2 *) { velocity = 6.; carsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); image = greenCarImage };
+  (* 3 *) { velocity = 6.; carsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); image = pinkCarImage };
+  (* 4 *) { velocity = 6.; carsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); image = raceCarImage};
+  (* 5 *) { velocity = 6.; carsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); image = whiteTruckImage};
 |];;
 
 let updateCar car dt = { car with sprite = { 
     car.sprite with x = let rowConfig = (Array.get carConfig car.row ) in 
                       let rowSpeed = (float_of_int worldWidth) /. rowConfig.velocity in 
-                      car.sprite.x -. (rowSpeed *. dt /. 1000.) 
+                      let direction = if car.row mod 2 = 0 then 1. else -1. in
+                      car.sprite.x +. direction *. (rowSpeed *. dt /. 1000.) 
   } };;
 
 let rec updateCars cars dt = 
@@ -185,8 +203,6 @@ let render ctx world =
 ;;
 
 let lastTime = ref (Js.Date.now ());;
-let lastCarTime = ref 0.;;
-let lastRowProbabilities = [| 0; 3; 2 |] (* how many cars-ish you should expect at any one time *)
 
 let rec update ctx world = 
   let now = Js.Date.now () in
@@ -206,11 +222,13 @@ let rec update ctx world =
                  else (world.frog.frameIndex +. dt *.world.frog.currentSprite.frameSpeed);
              } in 
   let movedCars = (updateCars world.cars dt) in
-  let cars = if now -. !lastCarTime > 5000. then 
-      (makeCar 1 yellowCarImage) :: (makeCar 2 greenCarImage):: movedCars
-    else movedCars in 
-  if now -. !lastCarTime > 5000. then lastCarTime := now;
-
+  let newCars = (Array.mapi 
+                   (fun i cfg -> if cfg.velocity > 0. && now > cfg.nextSpawnTime then (
+                        cfg.nextSpawnTime <- (now +. ((cfg.velocity) *. 1000. /. (float_of_int cfg.carsAtOnceIsh )) +. (getJitter ()) );
+                        Some (makeCar i cfg.image) 
+                      ) 
+                      else None) carConfig) |> Array.to_list |> deoptionalize in
+  let cars = (newCars @ movedCars ) in
 
   (* we want to reset directional pressedKeys after we process it once since frogger doesn't continously move, he jumps  *)
   pressedKeys.left <- false;
