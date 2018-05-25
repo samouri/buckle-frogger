@@ -13,6 +13,12 @@ let deoptionalize lst =
       | None -> assert false
     )
 
+(* define an infix operator to create a range between numbers. WTF this is crazy *)
+let (--) i j = 
+  let rec aux n acc =
+    if n < i then acc else aux (n-1) (n :: acc)
+  in aux j [] ;;
+
 (* Represents the values of relevant key bindings. *)
 type keys = {
   mutable left: bool;
@@ -99,8 +105,12 @@ let greenCarImage = makeSpriteImage 70 290 0 0.;;
 let pinkCarImage = makeSpriteImage 10 260 0 0.;;
 let raceCarImage = makeSpriteImage 40 260 0 0.;;
 let whiteTruckImage = makeSpriteImage 110 290 0 0.;;
+let threeTurtleImage = makeSpriteImage 15 400 3 1.5;;
+let smallLogImage = makeSpriteImage 10 230 0 0.;;
+let mediumLogImage = makeSpriteImage 10 198 0 0.;;
+let bigLogImage = makeSpriteImage 10 160 0 0.;;
 
-let makeCar row img = 
+let makeCar ?width:(width=33) ?height:(height=30) row img = [
   {
     row;
     sprite = {
@@ -108,10 +118,23 @@ let makeCar row img =
       x = if row mod 2 = 0 then -30. else float_of_int worldWidth;
       y = float_of_int (worldHeight - 62 - (row * rowheight));
       frameIndex = 0.;
-      width = if row = 5 then 66 else 33;
-      height = 30;
+      width;
+      height;
     }
-  };;
+  }];; 
+
+let makeTurtles ?width:(width=33) ?height:(height=30) row img n = 
+  List.map (fun i -> {
+        row;
+        sprite = {
+          currentSprite = img;
+          x = if row mod 2 = 0 then -30. -. (float_of_int (width * i)) else float_of_int worldWidth +. (float_of_int (width * i));
+          y = float_of_int (worldHeight - 62 - (row * rowheight));
+          frameIndex = 0.;
+          width;
+          height;
+        }
+      }) (1--n);; 
 
 type frogSpritesT = { upSprite: spriteImageT; downSprite: spriteImageT; leftSprite: spriteImageT; rightSprite: spriteImageT };;
 let frogSprites = {
@@ -161,8 +184,7 @@ type carsData = {
   velocity: float;
   carsAtOnceIsh: int;
   mutable nextSpawnTime: float;
-  (* mutable nextMake: flaot; *)
-  image: spriteImageT
+  make: unit -> carT list;
 };;
 
 let getJitter () = float_of_int (Random.int 1000 );;
@@ -170,19 +192,28 @@ let getJitterFromNow () = (Js.Date.now ()) +. (getJitter ());;
 
 (* velocities is measured in percent screen crossed per second *)
 let carConfig = [|
-  (* 0 *) { velocity = 0.; carsAtOnceIsh = 0; nextSpawnTime = (getJitterFromNow ()); image = yellowCarImage};
-  (* 1 *) { velocity = 10.; carsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); image = yellowCarImage};
-  (* 2 *) { velocity = 6.; carsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); image = greenCarImage };
-  (* 3 *) { velocity = 6.; carsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); image = pinkCarImage };
-  (* 4 *) { velocity = 6.; carsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); image = raceCarImage};
-  (* 5 *) { velocity = 6.; carsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); image = whiteTruckImage};
+  (* 0 *) { velocity = 0.; carsAtOnceIsh = 0; nextSpawnTime = 0.; make = fun () -> makeCar 0 yellowCarImage};
+  (* 1 *) { velocity = 10.; carsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeCar 1 yellowCarImage};
+  (* 2 *) { velocity = 6.; carsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeCar 2 greenCarImage };
+  (* 3 *) { velocity = 6.; carsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeCar 3  pinkCarImage };
+  (* 4 *) { velocity = 6.; carsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeCar 4 raceCarImage };
+  (* 5 *) { velocity = 6.; carsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeCar ~width:66 5 whiteTruckImage};
+  (* 6 *) { velocity = 0.; carsAtOnceIsh = 0; nextSpawnTime = 0.; make = fun () -> makeCar 0 yellowCarImage };
+  (* 7 *) { velocity = 10.; carsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeTurtles ~width:36 7 threeTurtleImage 3 };
+  (* 8 *) { velocity = 6.; carsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeCar 8 ~width:80 smallLogImage };
+  (* 9 *) { velocity = 6.; carsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeCar 9 ~width:180 bigLogImage };
+  (* 10 *) { velocity = 6.; carsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeTurtles ~width:36 10 threeTurtleImage 2 };
+  (* 11 *) { velocity = 6.; carsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); make = fun () -> makeCar ~width:120 11 mediumLogImage};
+  (* 12 *) { velocity = 0.; carsAtOnceIsh = 0; nextSpawnTime = 0.; make = fun () -> makeCar 0 yellowCarImage };
 |];;
 
 let updateCar car dt = { car with sprite = { 
-    car.sprite with x = let rowConfig = (Array.get carConfig car.row ) in 
-                      let rowSpeed = (float_of_int worldWidth) /. rowConfig.velocity in 
-                      let direction = if car.row mod 2 = 0 then 1. else -1. in
-                      car.sprite.x +. direction *. (rowSpeed *. dt /. 1000.) 
+    car.sprite with 
+    frameIndex = if (int_of_float (car.sprite.frameIndex /. 1000.)) >= car.sprite.currentSprite.frames then 0. else car.sprite.frameIndex +. dt *. car.sprite.currentSprite.frameSpeed;
+    x = let rowConfig = (Array.get carConfig car.row ) in 
+      let rowSpeed = (float_of_int worldWidth) /. rowConfig.velocity in 
+      let direction = if car.row mod 2 = 0 then 1. else -1. in
+      car.sprite.x +. direction *. (rowSpeed *. dt /. 1000.); 
   } };;
 
 let rec updateCars cars dt = 
@@ -222,12 +253,12 @@ let rec update ctx world =
                  else (world.frog.frameIndex +. dt *.world.frog.currentSprite.frameSpeed);
              } in 
   let movedCars = (updateCars world.cars dt) in
-  let newCars = (Array.mapi 
-                   (fun i cfg -> if cfg.velocity > 0. && now > cfg.nextSpawnTime then (
+  let newCars = (Array.map
+                   (fun cfg -> if cfg.velocity > 0. && now > cfg.nextSpawnTime then (
                         cfg.nextSpawnTime <- (now +. ((cfg.velocity) *. 1000. /. (float_of_int cfg.carsAtOnceIsh )) +. (getJitter ()) );
-                        Some (makeCar i cfg.image) 
+                        Some (cfg.make ()) 
                       ) 
-                      else None) carConfig) |> Array.to_list |> deoptionalize in
+                      else None) carConfig) |> Array.to_list |> deoptionalize |> List.flatten in
   let cars = (newCars @ movedCars ) in
 
   (* we want to reset directional pressedKeys after we process it once since frogger doesn't continously move, he jumps  *)
@@ -236,7 +267,7 @@ let rec update ctx world =
   pressedKeys.up <- false;
   pressedKeys.down <- false;
   let newWorld = {world with frog; cars; } in
-  (Webapi.requestAnimationFrame (fun dt -> (update ctx newWorld )))
+  (Webapi.requestAnimationFrame (fun _ -> (update ctx newWorld )))
 ;;
 
 let load _ =

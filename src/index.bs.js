@@ -3,6 +3,7 @@
 
 var List = require("bs-platform/lib/js/list.js");
 var $$Array = require("bs-platform/lib/js/array.js");
+var Curry = require("bs-platform/lib/js/curry.js");
 var Random = require("bs-platform/lib/js/random.js");
 var Caml_array = require("bs-platform/lib/js/caml_array.js");
 var Caml_int32 = require("bs-platform/lib/js/caml_int32.js");
@@ -34,6 +35,25 @@ function deoptionalize(lst) {
                       ];
                 }
               }), List.filter(isSome)(lst));
+}
+
+function $neg$neg(i, j) {
+  var _n = j;
+  var _acc = /* [] */0;
+  while(true) {
+    var acc = _acc;
+    var n = _n;
+    if (n < i) {
+      return acc;
+    } else {
+      _acc = /* :: */[
+        n,
+        acc
+      ];
+      _n = n - 1 | 0;
+      continue ;
+    }
+  };
 }
 
 var pressedKeys = /* record */[
@@ -174,18 +194,69 @@ var whiteTruckImage = /* record */[
   /* frameSpeed */0
 ];
 
-function makeCar(row, img) {
-  return /* record */[
-          /* row */row,
-          /* sprite : record */[
-            /* x */row % 2 === 0 ? -30 : 400,
-            /* y */378 - Caml_int32.imul(row, 30) | 0,
-            /* width */row === 5 ? 66 : 33,
-            /* height */30,
-            /* frameIndex */0,
-            /* currentSprite */img
-          ]
+var threeTurtleImage = /* record */[
+  /* xStart */15,
+  /* yStart */400,
+  /* frames */3,
+  /* frameSpeed */1.5
+];
+
+var smallLogImage = /* record */[
+  /* xStart */10,
+  /* yStart */230,
+  /* frames */0,
+  /* frameSpeed */0
+];
+
+var mediumLogImage = /* record */[
+  /* xStart */10,
+  /* yStart */198,
+  /* frames */0,
+  /* frameSpeed */0
+];
+
+var bigLogImage = /* record */[
+  /* xStart */10,
+  /* yStart */160,
+  /* frames */0,
+  /* frameSpeed */0
+];
+
+function makeCar($staropt$star, $staropt$star$1, row, img) {
+  var width = $staropt$star ? $staropt$star[0] : 33;
+  var height = $staropt$star$1 ? $staropt$star$1[0] : 30;
+  return /* :: */[
+          /* record */[
+            /* row */row,
+            /* sprite : record */[
+              /* x */row % 2 === 0 ? -30 : 400,
+              /* y */378 - Caml_int32.imul(row, 30) | 0,
+              /* width */width,
+              /* height */height,
+              /* frameIndex */0,
+              /* currentSprite */img
+            ]
+          ],
+          /* [] */0
         ];
+}
+
+function makeTurtles($staropt$star, $staropt$star$1, row, img, n) {
+  var width = $staropt$star ? $staropt$star[0] : 33;
+  var height = $staropt$star$1 ? $staropt$star$1[0] : 30;
+  return List.map((function (i) {
+                return /* record */[
+                        /* row */row,
+                        /* sprite : record */[
+                          /* x */row % 2 === 0 ? -30 - Caml_int32.imul(width, i) : 400 + Caml_int32.imul(width, i),
+                          /* y */378 - Caml_int32.imul(row, 30) | 0,
+                          /* width */width,
+                          /* height */height,
+                          /* frameIndex */0,
+                          /* currentSprite */img
+                        ]
+                      ];
+              }), $neg$neg(1, n));
 }
 
 var frogSprites_000 = /* upSprite : record */[
@@ -283,38 +354,106 @@ var carConfig = /* array */[
   /* record */[
     /* velocity */0,
     /* carsAtOnceIsh */0,
-    /* nextSpawnTime */getJitterFromNow(/* () */0),
-    /* image */yellowCarImage
+    /* nextSpawnTime */0,
+    /* make */(function () {
+        return makeCar(/* None */0, /* None */0, 0, yellowCarImage);
+      })
   ],
   /* record */[
     /* velocity */10,
     /* carsAtOnceIsh */4,
     /* nextSpawnTime */getJitterFromNow(/* () */0),
-    /* image */yellowCarImage
+    /* make */(function () {
+        return makeCar(/* None */0, /* None */0, 1, yellowCarImage);
+      })
   ],
   /* record */[
     /* velocity */6,
     /* carsAtOnceIsh */3,
     /* nextSpawnTime */getJitterFromNow(/* () */0),
-    /* image */greenCarImage
+    /* make */(function () {
+        return makeCar(/* None */0, /* None */0, 2, greenCarImage);
+      })
   ],
   /* record */[
     /* velocity */6,
     /* carsAtOnceIsh */4,
     /* nextSpawnTime */getJitterFromNow(/* () */0),
-    /* image */pinkCarImage
+    /* make */(function () {
+        return makeCar(/* None */0, /* None */0, 3, pinkCarImage);
+      })
   ],
   /* record */[
     /* velocity */6,
     /* carsAtOnceIsh */2,
     /* nextSpawnTime */getJitterFromNow(/* () */0),
-    /* image */raceCarImage
+    /* make */(function () {
+        return makeCar(/* None */0, /* None */0, 4, raceCarImage);
+      })
   ],
   /* record */[
     /* velocity */6,
     /* carsAtOnceIsh */3,
     /* nextSpawnTime */getJitterFromNow(/* () */0),
-    /* image */whiteTruckImage
+    /* make */(function () {
+        return makeCar(/* Some */[66], /* None */0, 5, whiteTruckImage);
+      })
+  ],
+  /* record */[
+    /* velocity */0,
+    /* carsAtOnceIsh */0,
+    /* nextSpawnTime */0,
+    /* make */(function () {
+        return makeCar(/* None */0, /* None */0, 0, yellowCarImage);
+      })
+  ],
+  /* record */[
+    /* velocity */10,
+    /* carsAtOnceIsh */2,
+    /* nextSpawnTime */getJitterFromNow(/* () */0),
+    /* make */(function () {
+        return makeTurtles(/* Some */[36], /* None */0, 7, threeTurtleImage, 3);
+      })
+  ],
+  /* record */[
+    /* velocity */6,
+    /* carsAtOnceIsh */3,
+    /* nextSpawnTime */getJitterFromNow(/* () */0),
+    /* make */(function () {
+        return makeCar(/* Some */[80], /* None */0, 8, smallLogImage);
+      })
+  ],
+  /* record */[
+    /* velocity */6,
+    /* carsAtOnceIsh */1,
+    /* nextSpawnTime */getJitterFromNow(/* () */0),
+    /* make */(function () {
+        return makeCar(/* Some */[180], /* None */0, 9, bigLogImage);
+      })
+  ],
+  /* record */[
+    /* velocity */6,
+    /* carsAtOnceIsh */2,
+    /* nextSpawnTime */getJitterFromNow(/* () */0),
+    /* make */(function () {
+        return makeTurtles(/* Some */[36], /* None */0, 10, threeTurtleImage, 2);
+      })
+  ],
+  /* record */[
+    /* velocity */6,
+    /* carsAtOnceIsh */3,
+    /* nextSpawnTime */getJitterFromNow(/* () */0),
+    /* make */(function () {
+        return makeCar(/* Some */[120], /* None */0, 11, mediumLogImage);
+      })
+  ],
+  /* record */[
+    /* velocity */0,
+    /* carsAtOnceIsh */0,
+    /* nextSpawnTime */0,
+    /* make */(function () {
+        return makeCar(/* None */0, /* None */0, 0, yellowCarImage);
+      })
   ]
 ];
 
@@ -330,7 +469,7 @@ function updateCar(car, dt) {
             /* y */init[/* y */1],
             /* width */init[/* width */2],
             /* height */init[/* height */3],
-            /* frameIndex */init[/* frameIndex */4],
+            /* frameIndex */(car[/* sprite */1][/* frameIndex */4] / 1000 | 0) >= car[/* sprite */1][/* currentSprite */5][/* frames */2] ? 0 : car[/* sprite */1][/* frameIndex */4] + dt * car[/* sprite */1][/* currentSprite */5][/* frameSpeed */3],
             /* currentSprite */init[/* currentSprite */5]
           ]
         ];
@@ -394,14 +533,14 @@ function update(ctx, world) {
     frog_005
   ];
   var movedCars = updateCars(world[/* cars */4], dt);
-  var newCars = deoptionalize($$Array.to_list($$Array.mapi((function (i, cfg) {
-                  if (cfg[/* velocity */0] > 0 && now > cfg[/* nextSpawnTime */2]) {
-                    cfg[/* nextSpawnTime */2] = now + cfg[/* velocity */0] * 1000 / cfg[/* carsAtOnceIsh */1] + Random.$$int(1000);
-                    return /* Some */[makeCar(i, cfg[/* image */3])];
-                  } else {
-                    return /* None */0;
-                  }
-                }), carConfig)));
+  var newCars = List.flatten(deoptionalize($$Array.to_list($$Array.map((function (cfg) {
+                      if (cfg[/* velocity */0] > 0 && now > cfg[/* nextSpawnTime */2]) {
+                        cfg[/* nextSpawnTime */2] = now + cfg[/* velocity */0] * 1000 / cfg[/* carsAtOnceIsh */1] + Random.$$int(1000);
+                        return /* Some */[Curry._1(cfg[/* make */3], /* () */0)];
+                      } else {
+                        return /* None */0;
+                      }
+                    }), carConfig))));
   var cars = Pervasives.$at(newCars, movedCars);
   pressedKeys[/* left */0] = false;
   pressedKeys[/* right */1] = false;
@@ -446,6 +585,7 @@ var magnification = 1;
 
 exports.isSome = isSome;
 exports.deoptionalize = deoptionalize;
+exports.$neg$neg = $neg$neg;
 exports.pressedKeys = pressedKeys;
 exports.keydown = keydown;
 exports.img = img;
@@ -459,7 +599,12 @@ exports.greenCarImage = greenCarImage;
 exports.pinkCarImage = pinkCarImage;
 exports.raceCarImage = raceCarImage;
 exports.whiteTruckImage = whiteTruckImage;
+exports.threeTurtleImage = threeTurtleImage;
+exports.smallLogImage = smallLogImage;
+exports.mediumLogImage = mediumLogImage;
+exports.bigLogImage = bigLogImage;
 exports.makeCar = makeCar;
+exports.makeTurtles = makeTurtles;
 exports.frogSprites = frogSprites;
 exports.startWorld = startWorld;
 exports.magnification = magnification;
