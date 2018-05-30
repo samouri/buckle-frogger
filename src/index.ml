@@ -25,12 +25,14 @@ let (<->) i j =
 type keys = {
   mutable direction: directionT option;
   mutable bbox: bool;
+  mutable grid: bool;
 }
 
 (*pressed_keys instantiates the keys.*)
 let pressedKeys = {
   direction = None;
   bbox = false;
+  grid = false;
 };;
 
 (* Keydown event handler translates a key press *)
@@ -41,6 +43,7 @@ let keydown (evt:Dom.event) =
   | 37 | 65 -> pressedKeys.direction <- Some Left
   | 40 | 83 -> pressedKeys.direction <- Some Down
   | 66 -> pressedKeys.bbox <- (not pressedKeys.bbox)
+  | 71 -> pressedKeys.grid <- (not pressedKeys.grid)
   | _ -> Js.log ("did not find nothing" ^ ((toUnsafe evt)##keyCode))
 ;;
 
@@ -61,7 +64,7 @@ let keydown (evt:Dom.event) =
 let spriteSheet = HtmlImageElement.make ();;
 (HtmlImageElement.src spriteSheet spritesUrl);;
 
-type spriteImageT = { xStart: int; yStart: int; frames: int; frameSpeed: float; width: int; height: int;};;
+type spriteImageT = { xStart: int; yStart: int; frames: int; frameSpeed: float; width: int; height: int; number: int; };;
 type rectT = {
   x: float;
   y: float;
@@ -99,8 +102,8 @@ type laneConfigT = {
   img: spriteImageT;
 };;
 
-let makeSpriteImage xStart yStart frames frameSpeed width = { 
-  xStart; yStart; frames; frameSpeed; width; height = 30;
+let makeSpriteImage ?(number=1) xStart yStart frames frameSpeed width = { 
+  xStart; yStart; frames; frameSpeed; width; height = 30; number;
 };;
 
 let windowHeight = Window.innerHeight window;;
@@ -121,15 +124,16 @@ let getYForRow row = height - ((row) * tileSize);;
    let worldWidth = cols * tileSize;; *)
 let magnification = 1.;; (* visual scaling multiplier *)
 
-let yellowCarImage = makeSpriteImage 80 260 0 0. 33;;
-let greenCarImage = makeSpriteImage 70 290 0 0. 33;;
-let pinkCarImage = makeSpriteImage 10 260 0 0. 33;;
+let yellowCarImage = makeSpriteImage 80 262 0 0. 33;;
+let greenCarImage = makeSpriteImage 70 296 0 0. 33;;
+let pinkCarImage = makeSpriteImage 10 262 0 0. 31;;
 let raceCarImage = makeSpriteImage 40 260 0 0. 33;;
-let whiteTruckImage = makeSpriteImage 110 290 0 0. 66;;
-let threeTurtleImage = makeSpriteImage 15 400 3 1.5 36;;
-let smallLogImage = makeSpriteImage 10 230 0 0. 80;;
-let mediumLogImage = makeSpriteImage 10 198 0 0. 120;;
-let bigLogImage = makeSpriteImage 10 160 0 0. 180;;
+let whiteTruckImage = makeSpriteImage 110 296 0 0. 43;;
+let threeTurtleImage = makeSpriteImage ~number:3 15 402 3 1.5 36;;
+let twoTurleImage = makeSpriteImage ~number:2 15 402 3 1.5 36;;
+let smallLogImage = makeSpriteImage 10 225 0 0. 80;;
+let mediumLogImage = makeSpriteImage 10 193 0 0. 120;;
+let bigLogImage = makeSpriteImage 10 162 0 0. 180;;
 let frogUp = makeSpriteImage 0 370 2 20. 33;;
 let frogDown = makeSpriteImage 70 370 2 20. 33;;
 let frogLeft = makeSpriteImage 70 335 2 20. 33;;
@@ -151,7 +155,7 @@ let startWorld : worldT = {
 };;
 
 
-let makeLaneObject ((row, { img; velocity; objType }): (int * laneConfigT)) = 
+let makeLaneObject ((row, { img; velocity; objType; }): (int * laneConfigT)) = 
   let direction = if velocity > 0. then Right else Left in 
   [{
     rect = {
@@ -160,7 +164,7 @@ let makeLaneObject ((row, { img; velocity; objType }): (int * laneConfigT)) =
           | Left -> float_of_int width
           | Up | Down -> assert false);
       y = float_of_int (height - (row * tileSize));
-      width = img.width;
+      width = img.width * img.number;
       height = img.height;
     };
     direction;
@@ -170,26 +174,18 @@ let makeLaneObject ((row, { img; velocity; objType }): (int * laneConfigT)) =
     frameIndex = 0.;
   }];;
 
-(* let makeTurtles row (img:spriteImageT) n direction = 
-   List.map (fun i -> {
-        row;
-        sprite = {
-          currentSprite = img;
-          x = (match direction with Right -> -30. -. (float_of_int (img.width * i)) | Left ->  float_of_int worldWidth +. (float_of_int (img.width * i)));
-          y = float_of_int (worldHeight - 62 - (row * rowHeight));
-          frameIndex = 0.;
-        }
-      }) (1<->n);;  *)
-
 let drawImage ctx image sourceX sourceY sourceWidth sourceHeight dx dy dWidth dHeight =
   let unsafeCtx = (toUnsafe ctx) in
   ignore @@ unsafeCtx##drawImage image sourceX sourceY sourceWidth sourceHeight dx dy dWidth dHeight;;
 
 let drawLaneObject ctx (sprite:laneObjectT) = 
-  let frameCalc = (sprite.frameIndex /. 1000.) in
+  let frameCalc = floor (sprite.frameIndex /. 1000.) in
   let img = sprite.img in
   let startX = (float_of_int img.xStart) +. frameCalc *. (float_of_int img.width) in 
-  drawImage ctx spriteSheet startX img.yStart img.width img.height (sprite.rect.x *. magnification) sprite.rect.y (magnification *. (float_of_int img.width)) (magnification *. (float_of_int img.height))
+  (List.map (fun i -> 
+       drawImage ctx spriteSheet startX img.yStart img.width img.height ((sprite.rect.x +. (float_of_int (img.width * i)) ) *. magnification) sprite.rect.y (magnification *. (float_of_int img.width)) (magnification *. (float_of_int tileSize))
+     ) (0<->(img.number-1)))
+;;
 
 let drawFrog ctx (frog:frogT) = 
   let img = match frog.direction with 
@@ -197,7 +193,7 @@ let drawFrog ctx (frog:frogT) =
     | Down -> frogDown;
     | Left -> frogLeft;
     | Right -> frogRight in
-  let startX = float_of_int (img.xStart + if frog.leftInJump = 0. then 0 else img.width) in 
+  let startX = float_of_int (img.xStart + if frog.leftInJump = 0. then 0 else img.width + 5) in 
   drawImage ctx spriteSheet startX img.yStart img.width img.height (frog.rect.x *. magnification) frog.rect.y (magnification *. (float_of_int img.width)) (magnification *. (float_of_int img.height))
 
 let drawGoal ctx = 
@@ -218,16 +214,16 @@ let getJitterFromNow () = (int_of_float (Js.Date.now ())) + (getJitter ());;
 
 (* velocities is measured in percent screen crossed per second *)
 let laneConfig = [
-  (2, { velocity = -10.; objectsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); objType = Car; img = yellowCarImage;} );
-  (3, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car ;img = greenCarImage; } );
-  (4, { velocity = -6.; objectsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); objType = Car ; img=pinkCarImage; } );
-  (5, { velocity = 6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=raceCarImage;} );
-  (6, { velocity = -6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=whiteTruckImage;});
-  (8, { velocity = -10.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=threeTurtleImage;} );
-  (9, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=smallLogImage;} );
-  (10, { velocity = 6.; objectsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=bigLogImage; } );
-  (11, {velocity = -6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=threeTurtleImage;} );
-  (12, {velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=mediumLogImage; } );
+  (3, { velocity = -10.; objectsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); objType = Car; img = yellowCarImage;} );
+  (4, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car ;img = greenCarImage; } );
+  (5, { velocity = -6.; objectsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); objType = Car ; img=pinkCarImage; } );
+  (6, { velocity = 6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=raceCarImage;} );
+  (7, { velocity = -6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=whiteTruckImage;});
+  (9, { velocity = -10.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=threeTurtleImage;} );
+  (10, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=smallLogImage;} );
+  (11, { velocity = 6.; objectsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=bigLogImage; } );
+  (12, {velocity = -6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=twoTurleImage;} );
+  (13, {velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=mediumLogImage; } );
 ];;
 
 let updateObj obj dt = { obj with 
@@ -237,7 +233,9 @@ let updateObj obj dt = { obj with
                                     let rowSpeed = (float_of_int width) /. rowConfig.velocity in 
                                     obj.rect.x +. (rowSpeed *. (float_of_int dt) /. 1000.); 
                                 };
-                         frameIndex = if (int_of_float (obj.frameIndex /. 1000.)) >= obj.img.frames then 0. else obj.frameIndex +. (float_of_int dt) *. obj.img.frameSpeed;
+                         frameIndex = 
+                           let nextFrameIndex = (obj.frameIndex +. ((float_of_int dt) *. obj.img.frameSpeed )) in
+                           if (int_of_float (nextFrameIndex /. 1000.)) < obj.img.frames then nextFrameIndex else 0.;
                        };;
 
 let rec updateCars cars dt = 
@@ -246,9 +244,17 @@ let rec updateCars cars dt =
   | hd::tl -> (updateObj hd dt) :: (updateCars tl dt)
 ;;
 
+let drawBoundingBoxes ctx world = 
+  Canvas2dRe.setStrokeStyle ctx Canvas2dRe.String "red";
+  (List.iter (fun { rect; } -> (
+         Canvas2dRe.strokeRect ~x: rect.x ~y: rect.y ~w: (float_of_int rect.width) ~h: (float_of_int rect.height) ctx;
+       )) (world.objects) );
+  let rect = world.frog.rect in
+  Canvas2dRe.strokeRect ~x: rect.x ~y: rect.y ~w: (float_of_int rect.width) ~h: (float_of_int rect.height) ctx;
+;;
 
 let drawGrid ctx = 
-  Canvas2dRe.setStrokeStyle ctx Canvas2dRe.String"red";
+  Canvas2dRe.setStrokeStyle ctx Canvas2dRe.String "red";
   (* draw columns *)
   (List.iter (fun i -> (
          Canvas2dRe.beginPath ctx;
@@ -269,10 +275,11 @@ let drawGrid ctx =
 let render ctx (world:worldT) = 
   Canvas2dRe.setFillStyle ctx String "black";
   Canvas2dRe.fillRect ctx ~x:0. ~y:0. ~h: (float_of_int height) ~w:(float_of_int width);
-  drawGrid ctx;
+  if pressedKeys.grid then drawGrid ctx;
+  if pressedKeys.bbox then drawBoundingBoxes ctx world;
   (drawGoal ctx);
   (drawGrass ctx (getYForRow 2));
-  (drawGrass ctx (getYForRow 7));
+  (drawGrass ctx (getYForRow 8));
   (drawCars ctx world.objects);
   (drawFrog ctx world.frog);
 ;;
