@@ -12,8 +12,6 @@ let deoptionalize lst =
       | Some x -> x 
       | None -> assert false
     );;
-
-
 type directionT = Left | Right | Up | Down;;
 
 (* define an infix operator to create a range between numbers. WTF this is crazy *)
@@ -130,11 +128,11 @@ let greenCarImage = makeSpriteImage 70 296 0 0. 33;;
 let pinkCarImage = makeSpriteImage 10 262 0 0. 31;;
 let raceCarImage = makeSpriteImage 40 260 0 0. 33;;
 let whiteTruckImage = makeSpriteImage 110 296 0 0. 43;;
-let threeTurtleImage = makeSpriteImage ~number:3 15 402 3 1.5 36;;
-let twoTurleImage = makeSpriteImage ~number:2 15 402 3 1.5 36;;
+let threeTurtleImage = makeSpriteImage ~number:3 15 402 3 1.5 35;;
+let twoTurleImage = makeSpriteImage ~number:2 15 402 3 1.5 35;;
 let smallLogImage = makeSpriteImage 10 225 0 0. 80;;
-let mediumLogImage = makeSpriteImage 10 193 0 0. 120;;
-let bigLogImage = makeSpriteImage 10 162 0 0. 180;;
+let mediumLogImage = makeSpriteImage 10 193 0 0. 115;;
+let bigLogImage = makeSpriteImage 10 162 0 0. 175;;
 let frogUp = makeSpriteImage ~height:23 8 362 2 20. 28;;
 let frogDown = makeSpriteImage ~height:23 76 370 2 20. 28;;
 let frogLeft = makeSpriteImage ~height:23 76 335 2 20. 33;;
@@ -159,7 +157,7 @@ let startWorld : worldT = {
     rect = { 
       x = float_of_int (tileSize * (cols / 2 -1) ); 
       y = float_of_int (getYForRow 2) +. 10.;  
-      width = 28;
+      width = 10;
       height = 20;
     };
     direction = Up;
@@ -209,7 +207,7 @@ let drawFrog ctx (frog:frogT) =
     | Left -> frogLeft;
     | Right -> frogRight in
   let startX = float_of_int (img.xStart + if frog.leftInJump = 0. then 0 else img.width + 5) in 
-  drawImage ctx spriteSheet startX img.yStart img.width img.height (frog.rect.x *. magnification) frog.rect.y (magnification *. (float_of_int img.width)) (magnification *. (float_of_int img.height))
+  drawImage ctx spriteSheet startX img.yStart img.width img.height ((frog.rect.x-.10.) *. magnification) frog.rect.y (magnification *. (float_of_int img.width)) (magnification *. (float_of_int img.height))
 
 let drawGoal ctx = 
   let y = getYForRow 15 in
@@ -333,6 +331,7 @@ let rec update ctx (world:worldT) =
 
   let collisions = List.filter (fun obj -> intersects obj.rect world.frog.rect ) world.objects in
   let hasCarCollision = List.exists isCar collisions in
+  let isInWater = List.length collisions = 0 && (getRowForY (int_of_float world.frog.rect.y)) > 7 && world.frog.leftInJump = 0. in
   let frog = updateFrog world.frog collisions dt in
   let movedLaneObjects = (updateCars world.objects dt) in
   let newLaneObjects = (List.map
@@ -342,7 +341,7 @@ let rec update ctx (world:worldT) =
                              ) 
                              else None) laneConfig) |> deoptionalize |> List.flatten in
   let objects = (movedLaneObjects @ newLaneObjects ) in
-  let newWorld = if hasCarCollision then startWorld else {world with frog; objects; } in
+  let newWorld = if hasCarCollision || isInWater then startWorld else {world with frog; objects; } in
   lastTime := int_of_float (Js.Date.now ());
   pressedKeys.direction <- None; (* remove the press once processed *)
   (Webapi.requestAnimationFrame (fun _ -> (update ctx newWorld )))
