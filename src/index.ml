@@ -11,7 +11,8 @@ let deoptionalize lst =
   |> List.map (function 
       | Some x -> x 
       | None -> assert false
-    )
+    );;
+
 
 type directionT = Left | Right | Up | Down;;
 
@@ -102,8 +103,8 @@ type laneConfigT = {
   img: spriteImageT;
 };;
 
-let makeSpriteImage ?(number=1) xStart yStart frames frameSpeed width = { 
-  xStart; yStart; frames; frameSpeed; width; height = 30; number;
+let makeSpriteImage ?(number=1) ?(height=30) xStart yStart frames frameSpeed width = { 
+  xStart; yStart; frames; frameSpeed; width; height; number;
 };;
 
 let windowHeight = Window.innerHeight window;;
@@ -134,18 +135,32 @@ let twoTurleImage = makeSpriteImage ~number:2 15 402 3 1.5 36;;
 let smallLogImage = makeSpriteImage 10 225 0 0. 80;;
 let mediumLogImage = makeSpriteImage 10 193 0 0. 120;;
 let bigLogImage = makeSpriteImage 10 162 0 0. 180;;
-let frogUp = makeSpriteImage 0 370 2 20. 33;;
-let frogDown = makeSpriteImage 70 370 2 20. 33;;
-let frogLeft = makeSpriteImage 70 335 2 20. 33;;
-let frogRight = makeSpriteImage 0 335 2 20. 33;;
+let frogUp = makeSpriteImage ~height:23 8 362 2 20. 28;;
+let frogDown = makeSpriteImage ~height:23 76 370 2 20. 28;;
+let frogLeft = makeSpriteImage ~height:23 76 335 2 20. 33;;
+let frogRight = makeSpriteImage ~height:23 8 335 2 20. 33;;
+
+let intersects (rect1:rectT) (rect2:rectT) =
+  let bottom1 = rect1.y +. (float_of_int rect1.height) in
+  let bottom2 = rect2.y +. (float_of_int rect2.height) in
+  let top1 = rect1.y in
+  let top2 = rect2.y in
+  let left1 = rect1.x in 
+  let left2 = rect2.x in
+  let right1 = rect1.x +. (float_of_int rect1.width) in 
+  let right2 = rect2.x +. (float_of_int rect2.width ) in
+  not ((bottom1 < top2 )|| 
+       (top1 > bottom2) ||
+       (right1 < left2) || 
+       (left1 > right2));;
 
 let startWorld : worldT = { 
   frog = { 
     rect = { 
       x = float_of_int (tileSize * (cols / 2 -1) ); 
       y = float_of_int (getYForRow 2) +. 10.;  
-      width = 30;
-      height = 30;
+      width = 28;
+      height = 20;
     };
     direction = Up;
     leftInJump = 0.;
@@ -163,7 +178,7 @@ let makeLaneObject ((row, { img; velocity; objType; }): (int * laneConfigT)) =
           | Right -> float_of_int (-width - 10) 
           | Left -> float_of_int width
           | Up | Down -> assert false);
-      y = float_of_int (height - (row * tileSize));
+      y = float_of_int (getYForRow row);
       width = img.width * img.number;
       height = img.height;
     };
@@ -212,26 +227,27 @@ let rec drawCars ctx cars =
 let getJitter () = Random.int 1000 ;;
 let getJitterFromNow () = (int_of_float (Js.Date.now ())) + (getJitter ());;
 
-(* velocities is measured in percent screen crossed per second *)
+(* velocities is the number of seconds it takes to cross the screen. the smaller the faster *)
 let laneConfig = [
   (3, { velocity = -10.; objectsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); objType = Car; img = yellowCarImage;} );
   (4, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car ;img = greenCarImage; } );
   (5, { velocity = -6.; objectsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); objType = Car ; img=pinkCarImage; } );
   (6, { velocity = 6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=raceCarImage;} );
   (7, { velocity = -6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=whiteTruckImage;});
-  (9, { velocity = -10.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=threeTurtleImage;} );
-  (10, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=smallLogImage;} );
-  (11, { velocity = 6.; objectsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=bigLogImage; } );
-  (12, {velocity = -6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=twoTurleImage;} );
-  (13, {velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=mediumLogImage; } );
+  (9, { velocity = -10.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=threeTurtleImage;} );
+  (10, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=smallLogImage;} );
+  (11, { velocity = 6.; objectsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=bigLogImage; } );
+  (12, {velocity = -6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=twoTurleImage;} );
+  (13, {velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
 ];;
+
+let secondsPerWidthToPixels vel dt = 
+  let speed = (float_of_int width) /. vel in
+  speed *. (float_of_int dt) /. 1000.;;
 
 let updateObj obj dt = { obj with 
                          rect = { obj.rect with 
-                                  x = let row = getRowForY (int_of_float obj.rect.y) in
-                                    let rowConfig = (List.assoc row laneConfig)  in
-                                    let rowSpeed = (float_of_int width) /. rowConfig.velocity in 
-                                    obj.rect.x +. (rowSpeed *. (float_of_int dt) /. 1000.); 
+                                  x = obj.rect.x +. secondsPerWidthToPixels obj.velocity dt
                                 };
                          frameIndex = 
                            let nextFrameIndex = (obj.frameIndex +. ((float_of_int dt) *. obj.img.frameSpeed )) in
@@ -245,11 +261,14 @@ let rec updateCars cars dt =
 ;;
 
 let drawBoundingBoxes ctx world = 
-  Canvas2dRe.setStrokeStyle ctx Canvas2dRe.String "red";
+  let frogBoxColor = ref "red" in
   (List.iter (fun { rect; } -> (
+         let color = if (intersects world.frog.rect rect) then ( frogBoxColor := "blue"; "blue") else "red" in
+         Canvas2dRe.setStrokeStyle ctx Canvas2dRe.String color;
          Canvas2dRe.strokeRect ~x: rect.x ~y: rect.y ~w: (float_of_int rect.width) ~h: (float_of_int rect.height) ctx;
        )) (world.objects) );
   let rect = world.frog.rect in
+  Canvas2dRe.setStrokeStyle ctx Canvas2dRe.String !frogBoxColor;
   Canvas2dRe.strokeRect ~x: rect.x ~y: rect.y ~w: (float_of_int rect.width) ~h: (float_of_int rect.height) ctx;
 ;;
 
@@ -286,27 +305,35 @@ let render ctx (world:worldT) =
 
 let lastTime = ref (int_of_float (Js.Date.now ()));;
 
-let updateFrog frog dt = 
+let updateFrog frog (collisions:laneObjectT list) dt = 
+  let floatedX = try 
+      let floatieThing = List.find (fun (obj:laneObjectT) -> match obj.objType with BasicFloater -> true | _ -> false) collisions in
+      secondsPerWidthToPixels floatieThing.velocity dt 
+    with Not_found -> 0. in
   if frog.leftInJump > 0. then
     let distanceToTravel = min ((float_of_int tileSize) *. ((float_of_int dt) /. 100. )) frog.leftInJump in
     { frog with 
       rect = {
         frog.rect with
-        x = frog.rect.x +. ( distanceToTravel *. match frog.direction with Left -> -1. | Right -> 1. | _ -> 0. );
+        x = frog.rect.x +. ( distanceToTravel *. match frog.direction with Left -> -1. | Right -> 1. | _ -> 0. ) +. floatedX;
         y = frog.rect.y +. ( distanceToTravel *. match frog.direction with Down -> 1. | Up -> -1. | _ -> 0. );
       };
       leftInJump = frog.leftInJump -. distanceToTravel;
     }
   else match pressedKeys.direction with 
-    | None -> frog
+    | None -> { frog with rect= { frog.rect with x = frog.rect.x +. floatedX } }
     | Some direction -> {frog with direction; leftInJump = float_of_int tileSize; };;
+
+let isCar (obj:laneObjectT) = match obj.objType with Car -> true | _ -> false;; 
 
 let rec update ctx (world:worldT) = 
   let now = int_of_float (Js.Date.now ()) in
   let dt = now - !lastTime in
   render ctx world;
 
-  let frog = updateFrog world.frog dt in
+  let collisions = List.filter (fun obj -> intersects obj.rect world.frog.rect ) world.objects in
+  let hasCarCollision = List.exists isCar collisions in
+  let frog = updateFrog world.frog collisions dt in
   let movedLaneObjects = (updateCars world.objects dt) in
   let newLaneObjects = (List.map
                           (fun (rowNum, (cfg:laneConfigT)) -> if now > cfg.nextSpawnTime then (
@@ -315,7 +342,7 @@ let rec update ctx (world:worldT) =
                              ) 
                              else None) laneConfig) |> deoptionalize |> List.flatten in
   let objects = (movedLaneObjects @ newLaneObjects ) in
-  let newWorld = {world with frog; objects; } in
+  let newWorld = if hasCarCollision then startWorld else {world with frog; objects; } in
   lastTime := int_of_float (Js.Date.now ());
   pressedKeys.direction <- None; (* remove the press once processed *)
   (Webapi.requestAnimationFrame (fun _ -> (update ctx newWorld )))
