@@ -128,8 +128,8 @@ let greenCarImage = makeSpriteImage 70 296 0 0. 33;;
 let pinkCarImage = makeSpriteImage 10 262 0 0. 31;;
 let raceCarImage = makeSpriteImage 40 260 0 0. 33;;
 let whiteTruckImage = makeSpriteImage 110 296 0 0. 43;;
-let threeTurtleImage = makeSpriteImage ~number:3 15 402 3 1.5 35;;
-let twoTurleImage = makeSpriteImage ~number:2 15 402 3 1.5 35;;
+let threeTurtleImage = makeSpriteImage ~number:3 15 402 3 2. 35;;
+let twoTurleImage = makeSpriteImage ~number:2 15 402 3 2. 35;;
 let smallLogImage = makeSpriteImage 10 225 0 0. 80;;
 let mediumLogImage = makeSpriteImage 10 193 0 0. 115;;
 let bigLogImage = makeSpriteImage 10 162 0 0. 175;;
@@ -173,7 +173,7 @@ let makeLaneObject ((row, { img; velocity; objType; }): (int * laneConfigT)) =
   [{
     rect = {
       x = (match direction with 
-          | Right -> float_of_int (-width - 10) 
+          | Right -> float_of_int (-img.width - 10) 
           | Left -> float_of_int width
           | Up | Down -> assert false);
       y = float_of_int (getYForRow row);
@@ -234,7 +234,7 @@ let laneConfig = [
   (7, { velocity = -6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=whiteTruckImage;});
   (9, { velocity = -10.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=threeTurtleImage;} );
   (10, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=smallLogImage;} );
-  (11, { velocity = 6.; objectsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=bigLogImage; } );
+  (11, { velocity = 4.; objectsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=bigLogImage; } );
   (12, {velocity = -6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=twoTurleImage;} );
   (13, {velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
 ];;
@@ -290,8 +290,10 @@ let drawGrid ctx =
   );;
 
 let render ctx (world:worldT) = 
-  Canvas2dRe.setFillStyle ctx String "black";
+  Canvas2dRe.setFillStyle ctx String "rgb(1,4,69)";
   Canvas2dRe.fillRect ctx ~x:0. ~y:0. ~h: (float_of_int height) ~w:(float_of_int width);
+  Canvas2dRe.setFillStyle ctx String "black";
+  Canvas2dRe.fillRect ctx ~x:0. ~y:(float_of_int (getYForRow 7)) ~h: (float_of_int height) ~w:(float_of_int width);
   if pressedKeys.grid then drawGrid ctx;
   if pressedKeys.bbox then drawBoundingBoxes ctx world;
   (drawGoal ctx);
