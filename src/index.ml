@@ -87,7 +87,7 @@ type laneObjectT = {
   objType: spriteT;
 }
 
-type gameStateT = Start | Playing | Won;;
+type gameStateT = Start | Playing | Won | Lose;;
 
 type worldT = { 
   frog: frogT;
@@ -103,7 +103,7 @@ type worldT = {
 
 type laneConfigT = {
   velocity: float;
-  objectsAtOnceIsh: int;
+  objectsAtOnceIsh: float;
   mutable nextSpawnTime: int;
   objType: spriteT;
   img: spriteImageT;
@@ -254,6 +254,18 @@ let drawWinScreen ctx =
   Canvas2dRe.setFillStyle ctx Canvas2dRe.String "black";
   Canvas2dRe.font ctx "60px/1 sans-serif";
   Canvas2dRe.fillText ~x:150. ~y: 200. "You Win!" ctx;
+  Canvas2dRe.font ctx "20px/1 sans-serif";
+  Canvas2dRe.fillText ~x:150. ~y: 280. "Press any key to another the game" ctx;
+;;
+
+let drawLoseScreen ctx = 
+  Canvas2dRe.setFillStyle ctx Canvas2dRe.String "white";
+  Canvas2dRe.fillRect ctx ~x:0. ~y:0. ~h: (float_of_int height) ~w:(float_of_int width);
+  Canvas2dRe.setFillStyle ctx Canvas2dRe.String "black";
+  Canvas2dRe.font ctx "60px/1 sans-serif";
+  Canvas2dRe.fillText ~x:150. ~y: 200. "You Lose" ctx;
+  Canvas2dRe.font ctx "20px/1 sans-serif";
+  Canvas2dRe.fillText ~x:150. ~y: 280. "Press any key to start another game" ctx;
 ;;
 
 
@@ -298,16 +310,16 @@ let getJitterFromNow () = (int_of_float (Js.Date.now ())) + (getJitter ());;
 
 (* velocities is the number of seconds it takes to cross the screen. the smaller the faster *)
 let laneConfig = [
-  (3, { velocity = -10.; objectsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); objType = Car; img = yellowCarImage;} );
-  (4, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car ;img = greenCarImage; } );
-  (5, { velocity = -6.; objectsAtOnceIsh = 4; nextSpawnTime = (getJitterFromNow ()); objType = Car ; img=pinkCarImage; } );
-  (6, { velocity = 6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=raceCarImage;} );
-  (7, { velocity = -6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=whiteTruckImage;});
-  (9, { velocity = -10.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=threeTurtleImage;} );
-  (10, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=smallLogImage;} );
-  (11, { velocity = 4.; objectsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=bigLogImage; } );
-  (12, {velocity = -6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=twoTurleImage;} );
-  (13, {velocity = 5.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
+  (3, { velocity = -10.; objectsAtOnceIsh = 4.; nextSpawnTime = (getJitterFromNow ()); objType = Car; img = yellowCarImage;} );
+  (4, { velocity = 6.; objectsAtOnceIsh = 3.; nextSpawnTime = (getJitterFromNow ()); objType = Car ;img = greenCarImage; } );
+  (5, { velocity = -6.; objectsAtOnceIsh = 4.; nextSpawnTime = (getJitterFromNow ()); objType = Car ; img=pinkCarImage; } );
+  (6, { velocity = 6.; objectsAtOnceIsh = 2.; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=raceCarImage;} );
+  (7, { velocity = -6.; objectsAtOnceIsh = 3.; nextSpawnTime = (getJitterFromNow ()); objType = Car; img=whiteTruckImage;});
+  (9, { velocity = -10.; objectsAtOnceIsh = 2.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=threeTurtleImage;} );
+  (10, { velocity = 6.; objectsAtOnceIsh = 3.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=smallLogImage;} );
+  (11, { velocity = 4.; objectsAtOnceIsh = 1.7; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=bigLogImage; } );
+  (12, {velocity = -6.; objectsAtOnceIsh = 2.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=twoTurleImage;} );
+  (13, {velocity = 5.; objectsAtOnceIsh = 3.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
 ];;
 
 let secondsPerWidthToPixels vel dt = 
@@ -410,7 +422,7 @@ let stepWorld world now dt =
   let movedLaneObjects = (updateCars world.objects dt) in
   let newLaneObjects = (List.map
                           (fun (rowNum, (cfg:laneConfigT)) -> if now > cfg.nextSpawnTime then (
-                               cfg.nextSpawnTime <- (getJitterFromNow ()) + (int_of_float ((abs_float cfg.velocity) *. 1000. /. (float_of_int cfg.objectsAtOnceIsh )));
+                               cfg.nextSpawnTime <- (getJitterFromNow ()) + (int_of_float ((abs_float cfg.velocity) *. 1000. /. cfg.objectsAtOnceIsh ));
                                Some (makeLaneObject (rowNum, cfg));
                              ) 
                              else None) laneConfig) |> deoptionalize |> List.flatten in
@@ -418,15 +430,14 @@ let stepWorld world now dt =
   if (List.length endzoneCollisions) > 0 then (
     let (ithCollision, _ ) = (List.hd endzoneCollisions)in
     let endzone = (List.map (fun (i, curr) -> (i, curr || ithCollision = i)) world.endzone) in
-    if List.exists (fun (_, boo) -> boo ) endzone then { world with state=Won}
+    if not (List.exists (fun (_, boo) -> not boo ) endzone) then { world with state=Won}
     else { startWorld with lives=world.lives; state=Playing; endzone; };
   ) 
   else if hasCarCollision || isInWater || timerIsUp then ( 
     if world.lives = 1
-    then startWorld 
+    then { world with state = Lose } 
     else { world with 
            frog=startWorld.frog; 
-           objects=startWorld.objects; 
            timer=startWorld.timer; 
            lives=world.lives-1 
          }
@@ -443,10 +454,14 @@ let rec update ctx (world:worldT) =
     nextWorld := stepWorld world now dt;
     render ctx world;
   ) else if world.state = Start then (
-    nextWorld := if pressedKeys.direction = None then world else {world with state = Playing };
+    nextWorld := if pressedKeys.direction = None then world else {startWorld with state = Playing };
     drawStartScreen ctx;
-  ) else (
+  ) else if world.state = Won then (
+    nextWorld := if pressedKeys.direction = None then world else {startWorld with state = Playing };
     drawWinScreen ctx;
+  ) else (
+    nextWorld := if pressedKeys.direction = None then world else {startWorld with state = Playing };
+    drawLoseScreen ctx;
   );
 
   lastTime := int_of_float (Js.Date.now ());
