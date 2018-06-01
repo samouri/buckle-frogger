@@ -51,7 +51,7 @@ let drawWinScreen ctx =
   Canvas2dRe.font ctx "60px/1 sans-serif";
   Canvas2dRe.fillText ~x:80. ~y: 150. "You Win!" ctx;
   Canvas2dRe.font ctx "20px/1 sans-serif";
-  Canvas2dRe.fillText ~x:80. ~y: 280. "Press any key to start another the game" ctx;
+  Canvas2dRe.fillText ~x:50. ~y: 280. "Press any key to start another the game" ctx;
 ;;
 
 let drawLoseScreen ctx = 
@@ -61,7 +61,7 @@ let drawLoseScreen ctx =
   Canvas2dRe.font ctx "60px/1 sans-serif";
   Canvas2dRe.fillText ~x:80. ~y: 200. "You Lose" ctx;
   Canvas2dRe.font ctx "20px/1 sans-serif";
-  Canvas2dRe.fillText ~x:80. ~y: 280. "Press any key to start another game" ctx;
+  Canvas2dRe.fillText ~x:50. ~y: 280. "Press any key to start another game" ctx;
 ;;
 
 
@@ -91,12 +91,10 @@ let drawTimer ctx world =
 ;;
 
 let drawCompletedEndzones ctx world =
-  Canvas2dRe.setFillStyle ctx String("purple");
   (List.iter (fun (i, rect) ->
        if (List.assoc i world.endzone) then (
          let x = rect.x in
-         Canvas2dRe.fillRect ~x ~y:(float_of_int (tileSize*2))
-           ~w: (float_of_int tileSize) ~h: (float_of_int tileSize) ctx;
+         (drawImage ctx goal 0 0 34 40 x (tileSize*2) 28 32)
        ); 
      ) endzoneRects);
 ;;

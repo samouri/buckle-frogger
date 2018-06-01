@@ -3,19 +3,6 @@ open State;;
 open Render;;
 open Types
 
-
-(* Keyup event handler translates a key release *)
-(* let keyup (evt:Dom.event) =
-   match (toUnsafe evt)##keyCode with
-   | 38 | 32 | 87 -> pressedKeys.direction <- None
-   | 39 | 68 -> pressedKeys.direction <- None
-   | 37 | 65 -> pressedKeys.direction <- None
-   | 40 | 83 -> pressedKeys.direction <- None
-   | _ -> ()
-   ;; *)
-
-(* (Window.addEventListener "keyup" keyup window );; *)
-
 let lastTime = ref (int_of_float (Js.Date.now ()));; 
 let rec update ctx (world:worldT) = 
   let now = int_of_float (Js.Date.now ()) in

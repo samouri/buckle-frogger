@@ -53,3 +53,17 @@ type laneConfigT = {
   objType: spriteT;
   img: spriteImageT;
 };;
+
+(* let height = 256;; (* original was 224 x 256 *)
+   let width = 224;; *)
+
+(* Frogger had a 14:16 ratio, so lets stick with that and scale at the render step *)
+let height = 480;;
+let width = 420;;
+let rows = 16;;
+let cols = 14;;
+let tileSize = height / rows ;;
+let halfTileSize = tileSize / 2;;
+
+let getRowForY y = (height - y) / tileSize;;
+let getYForRow row = height - ((row) * tileSize);;

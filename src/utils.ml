@@ -30,11 +30,24 @@ let intersects (rect1:rectT) (rect2:rectT) =
        (right1 < left2) || 
        (left1 > right2));;
 
+let rect_out_of_bounds rect = 
+  let x = int_of_float rect.x in
+  let y = int_of_float rect.y in
+  x + rect.width < 0 ||
+  x > width || 
+  y + rect.height < 0 ||
+  y > (height - tileSize)
+;;
+
 
 external spritesUrl: string = "../assets/frogger_sprites.png" [@@bs.module];;
+external frogGoalUrl: string = "../assets/goal_frog_0.png" [@@bs.module];;
 
 let spriteSheet = Webapi.Dom.HtmlImageElement.make ();;
 (Webapi.Dom.HtmlImageElement.src spriteSheet spritesUrl);;
+
+let goal = Webapi.Dom.HtmlImageElement.make ();;
+(Webapi.Dom.HtmlImageElement.src goal frogGoalUrl);;
 
 let makeSpriteImage ?(number=1) ?(height=30) xStart yStart frames frameSpeed width = { 
   xStart; yStart; frames; frameSpeed; width; height; number;
@@ -46,6 +59,7 @@ let pinkCarImage = makeSpriteImage 10 262 0 0. 31;;
 let raceCarImage = makeSpriteImage 40 260 0 0. 33;;
 let whiteTruckImage = makeSpriteImage 110 296 0 0. 43;;
 let threeTurtleImage = makeSpriteImage ~number:3 15 402 3 2. 35;;
+let divingThreeTurtles = makeSpriteImage ~number:3 15 402 6 2. 35;;
 let twoTurleImage = makeSpriteImage ~number:2 15 402 3 2. 35;;
 let smallLogImage = makeSpriteImage 10 225 0 0. 80;;
 let mediumLogImage = makeSpriteImage 10 193 0 0. 115;;

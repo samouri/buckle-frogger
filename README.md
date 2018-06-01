@@ -27,5 +27,5 @@ npm run parcel
 # To build for deployment
 
 ```
-npm run build-prod
+npm run prod-build
 ```

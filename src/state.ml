@@ -3,10 +3,7 @@ external toUnsafe : 'a -> < .. > Js.t = "%identity"
 open Utils
 open Types
 
-(* Frogger had a 4:3 ratio, so lets stick with that and scale at the render step *)
-let height = 480;;
-let width = 420;;
-(* let height = 256;;
+(* let height = 256;; (* original was 224 x 256 *)
    let width = 224;; *)
 let rows = 16;;
 let cols = 14;;
@@ -110,13 +107,6 @@ let updateObj obj dt = { obj with
                            if (int_of_float (nextFrameIndex /. 1000.)) < obj.img.frames then nextFrameIndex else 0.;
                        };;
 
-let rec updateCars cars dt = 
-  match cars with 
-  | [] -> [];
-  | hd::tl -> (updateObj hd dt) :: (updateCars tl dt)
-;;
-
-
 let updateFrog frog (collisions:laneObjectT list) dt = 
   let floatedX = try 
       let floatieThing = List.find (fun (obj:laneObjectT) -> match obj.objType with BasicFloater -> true | _ -> false) collisions in
@@ -134,7 +124,16 @@ let updateFrog frog (collisions:laneObjectT list) dt =
     }
   else match pressedKeys.direction with 
     | None -> { frog with rect= { frog.rect with x = frog.rect.x +. floatedX } }
-    | Some direction -> {frog with direction; leftInJump = float_of_int tileSize; };;
+    | Some direction -> 
+      let nextRect = {frog.rect with
+                      x = frog.rect.x +. ( (float_of_int tileSize) *. match direction with Left -> -1. | Right -> 1. | _ -> 0. );
+                      y = frog.rect.y +. ( (float_of_int tileSize) *. match direction with Down -> 1. | Up -> -1. | _ -> 0. );
+                     } in
+      let isValid = not (rect_out_of_bounds nextRect) in
+      if isValid 
+      then {frog with direction; leftInJump = float_of_int tileSize; }
+      else frog
+;;
 
 let isCar (obj:laneObjectT) = match obj.objType with Car -> true | _ -> false;; 
 
@@ -143,7 +142,7 @@ let makeLaneObject ((row, { img; velocity; objType; }): (int * laneConfigT)) =
   {
     rect = {
       x = (match direction with 
-          | Right -> float_of_int (-img.width - 10) 
+          | Right -> float_of_int (-img.width) 
           | Left -> float_of_int width
           | Up | Down -> assert false);
       y = float_of_int (getYForRow row);
@@ -172,17 +171,18 @@ let laneConfig = [
   (11, { velocity = 4.; objectsAtOnceIsh = 1.7; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=bigLogImage; } );
   (12, {velocity = -6.; objectsAtOnceIsh = 2.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=twoTurleImage;} );
   (13, {velocity = 5.; objectsAtOnceIsh = 3.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
-];;
-
+];; 
 
 let stepWorld world now dt = 
   let collisions = List.filter (fun obj -> intersects obj.rect world.frog.rect ) world.objects in
   let endzoneCollisions = List.filter (fun (_,rect) -> intersects rect world.frog.rect ) endzoneRects in 
   let hasCarCollision = List.exists isCar collisions in
   let isInWater = List.length collisions = 0 && (getRowForY (int_of_float world.frog.rect.y)) > 7 && world.frog.leftInJump = 0. in
+  let isOutOfBounds = rect_out_of_bounds world.frog.rect in
   let timerIsUp = world.timer <= 0 in
   let frog = updateFrog world.frog collisions dt in
-  let movedLaneObjects = (updateCars world.objects dt) in
+  let movedLaneObjects = (List.map (fun o -> updateObj o dt ) world.objects) 
+                         |> List.filter (fun obj -> not (rect_out_of_bounds obj.rect)) in
   let newLaneObjects = (List.map
                           (fun (rowNum, (cfg:laneConfigT)) -> if now > cfg.nextSpawnTime then (
                                cfg.nextSpawnTime <- (getJitterFromNow ()) + (int_of_float ((abs_float cfg.velocity) *. 1000. /. cfg.objectsAtOnceIsh ));
@@ -194,9 +194,13 @@ let stepWorld world now dt =
     let (ithCollision, _ ) = (List.hd endzoneCollisions)in
     let endzone = (List.map (fun (i, curr) -> (i, curr || ithCollision = i)) world.endzone) in
     if not (List.exists (fun (_, boo) -> not boo ) endzone) then { world with state=Won}
-    else { startWorld with lives=world.lives; state=Playing; endzone; };
+    else { world with 
+           frog=startWorld.frog; 
+           timer=startWorld.timer; 
+           endzone; 
+         };
   ) 
-  else if hasCarCollision || isInWater || timerIsUp then ( 
+  else if hasCarCollision || isInWater || timerIsUp || isOutOfBounds then ( 
     if world.lives = 1
     then { world with state = Lose } 
     else { world with 
