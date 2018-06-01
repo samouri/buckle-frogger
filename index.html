@@ -4,8 +4,30 @@
   <title>bucklefrog</title>
 </head>
 
-<body style="display: flex; justify-content: center;">
-  <canvas id="canvas" />
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  canvas {
+    height: 480px;
+    width: 420px;
+    border: solid 1px black;
+  }
+</style>
+
+<body>
+  <canvas id="canvas"> </canvas>
+  <div>
+    <h3>How to play:</h3>
+    <ul>
+      <li> Arrow keys: move left/right/up/down </li>
+      <li> b: toggle bounding boxes </li>
+      <li> g: toggle alignment grid </li>
+    </ul>
+  </div>
 </body>
 
 <footer>
