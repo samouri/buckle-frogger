@@ -87,10 +87,18 @@ type laneObjectT = {
   objType: spriteT;
 }
 
+type gameStateT = Start | Playing | Won;;
+
 type worldT = { 
   frog: frogT;
   keys: keys;
   objects: laneObjectT list;
+  state: gameStateT;
+  lives: int;
+  score: int;
+  highscore: int;
+  timer: int;
+  endzone: (int * bool) list;
 };;
 
 type laneConfigT = {
@@ -110,11 +118,13 @@ let windowWidth = Window.innerWidth window;;
 
 (* Frogger had a 4:3 ratio, so lets stick with that and scale at the render step *)
 let height = 640;;
-let width = 480;;
-let tileSize = 40;;
-let halfTileSize = 20;;
+let width = 560;;
+(* let height = 256;;
+   let width = 224;; *)
 let rows = 16;;
-let cols = 12;;
+let cols = 14;;
+let tileSize = height / rows ;;
+let halfTileSize = tileSize / 2;;
 
 let getRowForY y = (height - y) / tileSize;;
 let getYForRow row = height - ((row) * tileSize);;
@@ -165,7 +175,26 @@ let startWorld : worldT = {
   };
   objects = [];
   keys = pressedKeys;
+  state = Start;
+  lives = 5;
+  score = 0;
+  highscore = 0;
+  timer = 30 * 1000;
+  endzone = [ (0, false); (1,false); (2,false); (3,false); (4,false);]
 };;
+
+let endzoneRects = 
+  (List.map (fun i ->
+       let x = (float_of_int ((3*i*tileSize) +halfTileSize-(1*i))) in
+       let rect = { 
+         x; 
+         y = (float_of_int (tileSize*2)); 
+         width = tileSize; 
+         height= tileSize;
+       } in
+       (i, rect)
+     ) (0<->4))
+;;
 
 
 let makeLaneObject ((row, { img; velocity; objType; }): (int * laneConfigT)) = 
@@ -209,9 +238,28 @@ let drawFrog ctx (frog:frogT) =
   let startX = float_of_int (img.xStart + if frog.leftInJump = 0. then 0 else img.width + 5) in 
   drawImage ctx spriteSheet startX img.yStart img.width img.height ((frog.rect.x-.10.) *. magnification) frog.rect.y (magnification *. (float_of_int img.width)) (magnification *. (float_of_int img.height))
 
+let drawStartScreen ctx = 
+  Canvas2dRe.setFillStyle ctx Canvas2dRe.String "white";
+  Canvas2dRe.fillRect ctx ~x:0. ~y:0. ~h: (float_of_int height) ~w:(float_of_int width);
+  Canvas2dRe.setFillStyle ctx Canvas2dRe.String "black";
+  Canvas2dRe.font ctx "60px/1 sans-serif";
+  Canvas2dRe.fillText ~x:150. ~y: 200. "Frogger" ctx;
+  Canvas2dRe.font ctx "20px/1 sans-serif";
+  Canvas2dRe.fillText ~x:150. ~y: 280. "Press any key to start the game" ctx;
+;;
+
+let drawWinScreen ctx = 
+  Canvas2dRe.setFillStyle ctx Canvas2dRe.String "white";
+  Canvas2dRe.fillRect ctx ~x:0. ~y:0. ~h: (float_of_int height) ~w:(float_of_int width);
+  Canvas2dRe.setFillStyle ctx Canvas2dRe.String "black";
+  Canvas2dRe.font ctx "60px/1 sans-serif";
+  Canvas2dRe.fillText ~x:150. ~y: 200. "You Win!" ctx;
+;;
+
+
 let drawGoal ctx = 
   let y = getYForRow 15 in
-  drawImage ctx spriteSheet 0 62 398 45 0 (y+halfTileSize) (magnification *. (float_of_int width)) (magnification *. 60.);;
+  drawImage ctx spriteSheet 0 62 398 45 0 (y+halfTileSize) (magnification *. (float_of_int width)) (magnification *. (float_of_int (tileSize + halfTileSize)));;
 
 let drawGrass ctx y = 
   drawImage ctx spriteSheet 0 120 398 33 0 y (magnification *. (float_of_int width)) (magnification *. (float_of_int tileSize));;
@@ -220,6 +268,29 @@ let rec drawCars ctx cars =
   match cars with 
   | [] -> ();
   | hd::tl -> drawLaneObject ctx hd; (drawCars ctx tl)
+;;
+
+let drawLives ctx world =
+  Canvas2dRe.setFillStyle ctx String("red");
+  let livesText = "Lives: " ^ (string_of_int world.lives) in
+  Canvas2dRe.fillText ~x:(float_of_int halfTileSize) ~y: ((float_of_int (getYForRow 1)) +. 20.) livesText ctx
+;;
+
+let drawTimer ctx world =
+  Canvas2dRe.setFillStyle ctx String("red");
+  let timerText = "Timer: " ^ (string_of_int (world.timer / 1000)) in
+  Canvas2dRe.fillText ~x:(float_of_int (width - tileSize * 3)) ~y: ((float_of_int (getYForRow 1)) +. 20.) timerText ctx
+;;
+
+let drawCompletedEndzones ctx world =
+  Canvas2dRe.setFillStyle ctx String("purple");
+  (List.iter (fun (i, rect) ->
+       if (List.assoc i world.endzone) then (
+         let x = rect.x in
+         Canvas2dRe.fillRect ~x ~y:(float_of_int (tileSize*2))
+           ~w: (float_of_int tileSize) ~h: (float_of_int tileSize) ctx;
+       ); 
+     ) endzoneRects);
 ;;
 
 let getJitter () = Random.int 1000 ;;
@@ -236,7 +307,7 @@ let laneConfig = [
   (10, { velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=smallLogImage;} );
   (11, { velocity = 4.; objectsAtOnceIsh = 1; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=bigLogImage; } );
   (12, {velocity = -6.; objectsAtOnceIsh = 2; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=twoTurleImage;} );
-  (13, {velocity = 6.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
+  (13, {velocity = 5.; objectsAtOnceIsh = 3; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
 ];;
 
 let secondsPerWidthToPixels vel dt = 
@@ -299,8 +370,11 @@ let render ctx (world:worldT) =
   (drawGoal ctx);
   (drawGrass ctx (getYForRow 2));
   (drawGrass ctx (getYForRow 8));
+  (drawLives ctx world);
+  (drawTimer ctx world);
   (drawCars ctx world.objects);
   (drawFrog ctx world.frog);
+  (drawCompletedEndzones ctx world);
 ;;
 
 let lastTime = ref (int_of_float (Js.Date.now ()));;
@@ -326,14 +400,12 @@ let updateFrog frog (collisions:laneObjectT list) dt =
 
 let isCar (obj:laneObjectT) = match obj.objType with Car -> true | _ -> false;; 
 
-let rec update ctx (world:worldT) = 
-  let now = int_of_float (Js.Date.now ()) in
-  let dt = now - !lastTime in
-  render ctx world;
-
+let stepWorld world now dt = 
   let collisions = List.filter (fun obj -> intersects obj.rect world.frog.rect ) world.objects in
+  let endzoneCollisions = List.filter (fun (_,rect) -> intersects rect world.frog.rect ) endzoneRects in 
   let hasCarCollision = List.exists isCar collisions in
   let isInWater = List.length collisions = 0 && (getRowForY (int_of_float world.frog.rect.y)) > 7 && world.frog.leftInJump = 0. in
+  let timerIsUp = world.timer <= 0 in
   let frog = updateFrog world.frog collisions dt in
   let movedLaneObjects = (updateCars world.objects dt) in
   let newLaneObjects = (List.map
@@ -342,12 +414,46 @@ let rec update ctx (world:worldT) =
                                Some (makeLaneObject (rowNum, cfg));
                              ) 
                              else None) laneConfig) |> deoptionalize |> List.flatten in
-  let objects = (movedLaneObjects @ newLaneObjects ) in
-  let newWorld = if hasCarCollision || isInWater then startWorld else {world with frog; objects; } in
+  let objects = (movedLaneObjects @ newLaneObjects ) in 
+  if (List.length endzoneCollisions) > 0 then (
+    let (ithCollision, _ ) = (List.hd endzoneCollisions)in
+    let endzone = (List.map (fun (i, curr) -> (i, curr || ithCollision = i)) world.endzone) in
+    if List.exists (fun (_, boo) -> boo ) endzone then { world with state=Won}
+    else { startWorld with lives=world.lives; state=Playing; endzone; };
+  ) 
+  else if hasCarCollision || isInWater || timerIsUp then ( 
+    if world.lives = 1
+    then startWorld 
+    else { world with 
+           frog=startWorld.frog; 
+           objects=startWorld.objects; 
+           timer=startWorld.timer; 
+           lives=world.lives-1 
+         }
+  ) else (
+    {world with frog; objects; timer = world.timer - dt; }
+  ) 
+;;
+
+let rec update ctx (world:worldT) = 
+  let now = int_of_float (Js.Date.now ()) in
+  let dt = now - !lastTime in
+  let nextWorld = ref world in
+  if world.state = Playing then (
+    nextWorld := stepWorld world now dt;
+    render ctx world;
+  ) else if world.state = Start then (
+    nextWorld := if pressedKeys.direction = None then world else {world with state = Playing };
+    drawStartScreen ctx;
+  ) else (
+    drawWinScreen ctx;
+  );
+
   lastTime := int_of_float (Js.Date.now ());
   pressedKeys.direction <- None; (* remove the press once processed *)
-  (Webapi.requestAnimationFrame (fun _ -> (update ctx newWorld )))
+  (Webapi.requestAnimationFrame (fun _ -> (update ctx !nextWorld )))
 ;;
+
 
 let load _ =
   let canvas_id = "canvas" in
