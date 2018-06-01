@@ -2,6 +2,7 @@ open Webapi.Dom;;
 open State;;
 open Render;;
 open Types
+open Utils
 
 let lastTime = ref (int_of_float (Js.Date.now ()));; 
 let rec update ctx (world:worldT) = 

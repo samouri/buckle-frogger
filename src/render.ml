@@ -80,21 +80,36 @@ let rec drawCars ctx cars =
 
 let drawLives ctx world =
   Canvas2dRe.setFillStyle ctx String("red");
-  let livesText = "Lives: " ^ (string_of_int world.lives) in
-  Canvas2dRe.fillText ~x:(float_of_int halfTileSize) ~y: ((float_of_int (getYForRow 1)) +. 20.) livesText ctx
+  (List.iter 
+     (fun i -> (drawImage ctx lifeSprite 0 0 34 40 (10 + 20*i) (getYForRow 1) 28 32))
+     (0<->(world.lives-2))
+  )
 ;;
 
 let drawTimer ctx world =
-  Canvas2dRe.setFillStyle ctx String("red");
-  let timerText = "Timer: " ^ (string_of_int (world.timer / 1000)) in
-  Canvas2dRe.fillText ~x:(float_of_int (width - tileSize * 3)) ~y: ((float_of_int (getYForRow 1)) +. 20.) timerText ctx
+  Canvas2dRe.setFillStyle ctx String("rgb(49,220,39)"); (* green *)
+  let pixels = int_of_float (((float_of_int world.timer) /. (float_of_int startWorld.timer) ) *. ((float_of_int width) /. 2.5)) in 
+  Canvas2dRe.fillRect ~x:(float_of_int (width - tileSize * 2 - pixels - 3)) ~y: ((float_of_int (getYForRow 1)) +. 10.) ~w:(float_of_int pixels) ~h:15. ctx;
+  Canvas2dRe.setFillStyle ctx String("rgb(251,249,55)"); (* yellow *)
+  Canvas2dRe.fillText ~x:(float_of_int (width - tileSize * 2)) ~y: ((float_of_int (getYForRow 1)) +. 25.) "TIME" ctx
+;;
+
+let drawScore ctx world =
+  let scoreText = padWithZeros (string_of_int world.score) 5 in
+  let highscoreText = padWithZeros (string_of_int world.highscore) 5 in
+  Canvas2dRe.setFillStyle ctx String("rgb(222,222,246)"); (* whiteish *)
+  Canvas2dRe.fillText ~x:(float_of_int (tileSize * 2)) ~y: ((float_of_int (getYForRow 16 + halfTileSize + 3))) "1-UP" ctx;
+  Canvas2dRe.fillText ~x:(float_of_int (tileSize * 5)) ~y: ((float_of_int (getYForRow 16 + halfTileSize + 3))) "HI-SCORE" ctx;
+  Canvas2dRe.setFillStyle ctx String("rgb(252,13,27)"); (* reddish *)
+  Canvas2dRe.fillText ~x:(float_of_int (tileSize + halfTileSize)) ~y: ((float_of_int (getYForRow 15) +. 10.)) scoreText ctx;
+  Canvas2dRe.fillText ~x:(float_of_int (tileSize * 5 + 10)) ~y: ((float_of_int (getYForRow 15) +. 10.)) highscoreText ctx;
 ;;
 
 let drawCompletedEndzones ctx world =
   (List.iter (fun (i, rect) ->
        if (List.assoc i world.endzone) then (
          let x = rect.x in
-         (drawImage ctx goal 0 0 34 40 x (tileSize*2) 28 32)
+         (drawImage ctx goalSprite 0 0 34 40 x (tileSize*2) 28 32)
        ); 
      ) endzoneRects);
 ;;
@@ -142,6 +157,7 @@ let render ctx (world:worldT) =
   (drawGrass ctx (getYForRow 8));
   (drawLives ctx world);
   (drawTimer ctx world);
+  (drawScore ctx world);
   (drawCars ctx world.objects);
   (drawFrog ctx world.frog);
   (drawCompletedEndzones ctx world);

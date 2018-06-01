@@ -3,15 +3,10 @@ external toUnsafe : 'a -> < .. > Js.t = "%identity"
 open Utils
 open Types
 
-(* let height = 256;; (* original was 224 x 256 *)
-   let width = 224;; *)
-let rows = 16;;
-let cols = 14;;
-let tileSize = height / rows ;;
-let halfTileSize = tileSize / 2;;
-
-let getRowForY y = (height - y) / tileSize;;
-let getYForRow row = height - ((row) * tileSize);;
+let savedHighScore = match (Dom.Storage.getItem "highscore" Dom.Storage.localStorage) with
+  | Some n -> int_of_string n;
+  | None -> 0
+;;
 
 (* Represents the values of relevant key bindings. *)
 let pressedKeys = {
@@ -76,7 +71,8 @@ let startWorld : worldT = {
   state = Start;
   lives = 5;
   score = 0;
-  highscore = 0;
+  maxRow = 1;
+  highscore = savedHighScore;
   timer = 30 * 1000;
   endzone = [ (0, false); (1,false); (2,false); (3,false); (4,false);]
 };;
@@ -190,13 +186,21 @@ let stepWorld world now dt =
                              ) 
                              else None) laneConfig) |> deoptionalize in
   let objects = (movedLaneObjects @ newLaneObjects ) in 
+  let newFrogRow = getRowForY (int_of_float frog.rect.y) in
+  let score = if newFrogRow > world.maxRow then world.score + 10 else world.score in
+  let highscore = if score > world.highscore then (
+      (Dom.Storage.setItem "highscore" (string_of_int score) Dom.Storage.localStorage);
+      score;
+    ) else world.highscore in
   if (List.length endzoneCollisions) > 0 then (
     let (ithCollision, _ ) = (List.hd endzoneCollisions)in
     let endzone = (List.map (fun (i, curr) -> (i, curr || ithCollision = i)) world.endzone) in
     if not (List.exists (fun (_, boo) -> not boo ) endzone) then { world with state=Won}
     else { world with 
-           frog=startWorld.frog; 
-           timer=startWorld.timer; 
+           frog = startWorld.frog; 
+           timer = startWorld.timer; 
+           maxRow = startWorld.maxRow;
+           score = score + 200;
            endzone; 
          };
   ) 
@@ -209,6 +213,13 @@ let stepWorld world now dt =
            lives=world.lives-1 
          }
   ) else (
-    {world with frog; objects; timer = world.timer - dt; }
+    { world with 
+      frog; 
+      objects; 
+      score; 
+      maxRow = max newFrogRow world.maxRow;
+      timer = world.timer - dt; 
+      highscore;
+    }
   ) 
 ;;
