@@ -1,4 +1,5 @@
 external toUnsafe : 'a -> < .. > Js.t = "%identity"
+
 open Utils
 open Types
 
@@ -34,6 +35,32 @@ let keydown (evt:Dom.event) =
   | _ -> Js.log ("did not find nothing" ^ ((toUnsafe evt)##keyCode))
 ;;
 
+let xDown : int option ref = ref None;;
+let yDown : int option ref = ref None;;
+
+let handleTouchStart evt = 
+  xDown := Some [%raw "arguments[0].touches[0].clientX"];
+  yDown := Some [%raw "arguments[0].touches[0].clientY"];
+  ();
+;;
+
+let handleTouchMove evt = 
+  match (!xDown, !yDown) with
+  | (Some xdwn, Some ydwn) ->
+    let xUp = [%raw "arguments[0].touches[0].clientX"] in
+    let yUp = [%raw "arguments[0].touches[0].clientY"] in
+    let xDiff = xdwn - xUp in
+    let yDiff = ydwn - yUp in
+    if abs xDiff > abs yDiff then 
+      pressedKeys.direction <- if xDiff > 0 then Some Left else Some Right
+    else
+      (pressedKeys.direction <- if yDiff > 0 then Some Up else Some Down);
+
+  | (_,_) -> ();
+;;
+
+(Webapi.Dom.Window.addEventListener "touchstart" handleTouchStart Webapi.Dom.window );;
+(Webapi.Dom.Window.addEventListener "touchmove" handleTouchMove Webapi.Dom.window );;
 (Webapi.Dom.Window.addEventListener "keydown" keydown Webapi.Dom.window );;
 
 let startWorld : worldT = { 
