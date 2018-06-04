@@ -31,12 +31,16 @@ let xDown : int option ref = ref None;;
 let yDown : int option ref = ref None;;
 
 let handleTouchStart evt = 
+  [%raw "arguments[0].preventDefault()"];
+
   xDown := Some [%raw "arguments[0].touches[0].clientX"];
   yDown := Some [%raw "arguments[0].touches[0].clientY"];
   ();
 ;;
 
 let handleTouchMove evt = 
+  [%raw "arguments[0].preventDefault()"];
+
   match (!xDown, !yDown) with
   | (Some xdwn, Some ydwn) ->
     let xUp = [%raw "arguments[0].touches[0].clientX"] in
