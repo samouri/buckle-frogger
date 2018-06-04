@@ -8,24 +8,27 @@ let lastTime = ref (int_of_float (Js.Date.now ()));;
 let rec update ctx (world:worldT) = 
   let now = int_of_float (Js.Date.now ()) in
   let dt = now - !lastTime in
-  let nextWorld = ref world in
-  if world.state = Playing then (
-    nextWorld := stepWorld world now dt;
-    render ctx world;
-  ) else if world.state = Start then (
-    nextWorld := if pressedKeys.direction = None then world else {startWorld with state = Playing };
-    drawStartScreen ctx;
-  ) else if world.state = Won then (
-    nextWorld := if pressedKeys.direction = None then world else {startWorld with state = Playing };
-    drawWinScreen ctx;
-  ) else (
-    nextWorld := if pressedKeys.direction = None then world else {startWorld with state = Playing };
-    drawLoseScreen ctx;
-  );
-
+  (* drawing is a side effect *)
+  (match world.state with
+   | Playing -> render ctx world
+   | Start -> drawStartScreen ctx
+   | Won -> drawWinScreen ctx
+   | Lose -> drawLoseScreen ctx
+  ); 
+  let nextWorld = 
+    if world.state = Playing then 
+      stepWorld world now dt 
+    else
+    if pressedKeys.direction = None then 
+      world 
+    else 
+      {startWorld with 
+       state = Playing; 
+       highscore=world.highscore};
+  in 
   lastTime := int_of_float (Js.Date.now ());
   pressedKeys.direction <- None; (* remove the press once processed *)
-  (Webapi.requestAnimationFrame (fun _ -> (update ctx !nextWorld )))
+  (Webapi.requestAnimationFrame (fun _ -> (update ctx nextWorld )))
 ;;
 
 

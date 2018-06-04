@@ -1,5 +1,8 @@
 open Types
 
+(* function composition *)
+let (<<) f g x = f(g(x));;
+
 let isSome = function 
   | Some _ -> true 
   | None -> false;;
@@ -25,6 +28,8 @@ let padWithZeros (str:string) (n:int) =
   then str
   else (repeat "0" (n - strlen)) ^ str
 ;;
+
+let find_opt f lst = try Some (List.find f lst) with Not_found -> None;;
 
 (* let height = 256;; (* original was 224 x 256 *)
    let width = 224;; *)
@@ -54,7 +59,7 @@ let intersects (rect1:rectT) (rect2:rectT) =
        (right1 < left2) || 
        (left1 > right2));;
 
-let rect_out_of_bounds rect = 
+let isRectOutOfBounds rect = 
   let x = int_of_float rect.x in
   let y = int_of_float rect.y in
   x + rect.width < 0 ||
@@ -62,6 +67,8 @@ let rect_out_of_bounds rect =
   y + rect.height < 0 ||
   y > (height - tileSize)
 ;;
+
+let isRectInBounds =  not << isRectOutOfBounds;;
 
 
 external spritesUrl: string = "../assets/frogger_sprites.png" [@@bs.module];;

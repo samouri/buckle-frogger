@@ -107,34 +107,6 @@ let updateObj obj dt = { obj with
                            if (int_of_float (nextFrameIndex /. 1000.)) < obj.img.frames then nextFrameIndex else 0.;
                        };;
 
-let updateFrog frog (collisions:laneObjectT list) dt = 
-  let floatedX = try 
-      let floatieThing = List.find (fun (obj:laneObjectT) -> match obj.objType with BasicFloater -> true | _ -> false) collisions in
-      secondsPerWidthToPixels floatieThing.velocity dt 
-    with Not_found -> 0. in
-  if frog.leftInJump > 0. then
-    let distanceToTravel = min ((float_of_int tileSize) *. ((float_of_int dt) /. 100. )) frog.leftInJump in
-    { frog with 
-      rect = {
-        frog.rect with
-        x = frog.rect.x +. ( distanceToTravel *. match frog.direction with Left -> -1. | Right -> 1. | _ -> 0. ) +. floatedX;
-        y = frog.rect.y +. ( distanceToTravel *. match frog.direction with Down -> 1. | Up -> -1. | _ -> 0. );
-      };
-      leftInJump = frog.leftInJump -. distanceToTravel;
-    }
-  else match pressedKeys.direction with 
-    | None -> { frog with rect= { frog.rect with x = frog.rect.x +. floatedX } }
-    | Some direction -> 
-      let nextRect = {frog.rect with
-                      x = frog.rect.x +. ( (float_of_int tileSize) *. match direction with Left -> -1. | Right -> 1. | _ -> 0. );
-                      y = frog.rect.y +. ( (float_of_int tileSize) *. match direction with Down -> 1. | Up -> -1. | _ -> 0. );
-                     } in
-      let isValid = not (rect_out_of_bounds nextRect) in
-      if isValid 
-      then {frog with direction; leftInJump = float_of_int tileSize; }
-      else frog
-;;
-
 let isCar (obj:laneObjectT) = match obj.objType with Car -> true | _ -> false;; 
 
 let makeLaneObject ((row, { img; velocity; objType; }): (int * laneConfigT)) = 
@@ -173,57 +145,158 @@ let laneConfig = [
   (13, {velocity = 5.; objectsAtOnceIsh = 3.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
 ];; 
 
-let stepWorld world now dt = 
-  let collisions = List.filter (fun obj -> intersects obj.rect world.frog.rect ) world.objects in
-  let endzoneCollisions = List.filter (fun (_,rect) -> intersects rect world.frog.rect ) endzoneRects in 
-  let hasCarCollision = List.exists isCar collisions in
-  let isInWater = List.length collisions = 0 && (getRowForY (int_of_float world.frog.rect.y)) > 7 && world.frog.leftInJump = 0. in
-  let isOutOfBounds = rect_out_of_bounds world.frog.rect in
+(* state updates are modeled as a series of transformations to state.
+ * the fn signature is: (world, dt, temp) -> (nextWorld, dt, temp).
+ * world is all of current state, dt is time that has passed since the last update, and temp is working memory for passes to communicate through.
+ * for example, collisions are detected early on in the process and then that work is reused in various other passes.
+*)
+
+type tempT = {
+  laneCollisions: laneObjectT list;
+  now: int;
+}
+
+let updateFrog (world, dt, tmp ) = 
+  let frog = world.frog in
+  let floatedX = try 
+      let floatieThing = List.find (fun (obj:laneObjectT) -> match obj.objType with BasicFloater -> true | _ -> false) tmp.laneCollisions in
+      secondsPerWidthToPixels floatieThing.velocity dt 
+    with Not_found -> 0. in
+  let newFrog = if frog.leftInJump > 0. then
+      let distanceToTravel = min ((float_of_int tileSize) *. ((float_of_int dt) /. 100. )) frog.leftInJump in
+      { frog with 
+        rect = {
+          frog.rect with
+          x = frog.rect.x +. ( distanceToTravel *. match frog.direction with Left -> -1. | Right -> 1. | _ -> 0. ) +. floatedX;
+          y = frog.rect.y +. ( distanceToTravel *. match frog.direction with Down -> 1. | Up -> -1. | _ -> 0. );
+        };
+        leftInJump = frog.leftInJump -. distanceToTravel;
+      }
+    else match pressedKeys.direction with 
+      | None -> { frog with rect= { frog.rect with x = frog.rect.x +. floatedX } }
+      | Some direction -> 
+        let nextRect = {frog.rect with
+                        x = frog.rect.x +. ( (float_of_int tileSize) *. match direction with Left -> -1. | Right -> 1. | _ -> 0. );
+                        y = frog.rect.y +. ( (float_of_int tileSize) *. match direction with Down -> 1. | Up -> -1. | _ -> 0. );
+                       } in
+        let isValid = isRectInBounds nextRect in
+        if isValid 
+        then {frog with direction; leftInJump = float_of_int tileSize; }
+        else frog 
+  in
+  ({ world with frog = newFrog }, dt, tmp)
+;;
+
+let handleDeathCheck (world, dt, {laneCollisions} as tmp) = 
+  let hasCarCollision = List.exists isCar laneCollisions in
+  let isInWater = List.length laneCollisions = 0 && (getRowForY (int_of_float world.frog.rect.y)) > 7 && world.frog.leftInJump = 0. in
+  let isOutOfBounds = isRectOutOfBounds world.frog.rect in
   let timerIsUp = world.timer <= 0 in
-  let frog = updateFrog world.frog collisions dt in
-  let movedLaneObjects = (List.map (fun o -> updateObj o dt ) world.objects) 
-                         |> List.filter (fun obj -> not (rect_out_of_bounds obj.rect)) in
-  let newLaneObjects = (List.map
-                          (fun (rowNum, (cfg:laneConfigT)) -> if now > cfg.nextSpawnTime then (
-                               cfg.nextSpawnTime <- (getJitterFromNow ()) + (int_of_float ((abs_float cfg.velocity) *. 1000. /. cfg.objectsAtOnceIsh ));
-                               Some (makeLaneObject (rowNum, cfg));
-                             ) 
-                             else None) laneConfig) |> deoptionalize in
-  let objects = (movedLaneObjects @ newLaneObjects ) in 
-  let newFrogRow = getRowForY (int_of_float frog.rect.y) in
-  let score = if newFrogRow > world.maxRow then world.score + 10 else world.score in
-  let highscore = if score > world.highscore then (
-      (Dom.Storage.setItem "highscore" (string_of_int score) Dom.Storage.localStorage);
-      score;
+  let isDead =  hasCarCollision || isInWater || timerIsUp || isOutOfBounds in
+  let newWorld = if isDead then
+      match world.lives with 
+      | 1 -> { world with state = Lose }
+      | _ -> { world with 
+               frog=startWorld.frog; 
+               timer=startWorld.timer; 
+               lives=world.lives-1 
+             } 
+    else world
+  in
+  (newWorld, dt, tmp)
+;;
+
+let handleGameWinCheck (world, dt, tmp) = 
+  let allGoalsFilled = not (List.exists (fun (_, boo) -> not boo ) world.endzone) in
+  if allGoalsFilled then 
+    ({ world with state=Won}, dt, tmp)
+  else 
+    (world, dt, tmp)
+;;
+
+let handleEndzoneCheck (world, dt, tmp) = 
+  let intersectsWithFrog = fun (_, rect) -> intersects world.frog.rect rect in
+  let endzoneCollision = find_opt intersectsWithFrog endzoneRects in
+  match endzoneCollision with 
+  | None -> (world, dt, tmp)
+  | Some (matchedI, _) -> 
+    let alreadyFilled = List.assoc matchedI world.endzone in
+    let endzone = (List.map (fun (i, curr) -> (i, curr || matchedI = i)) world.endzone) in
+    let newWorld = if alreadyFilled then 
+        world 
+      else { world with 
+             frog = startWorld.frog; 
+             timer = startWorld.timer; 
+             maxRow = startWorld.maxRow;
+             score = world.score + 200 + (world.timer / 1000);
+             endzone; 
+           };
+    in
+    (newWorld, dt, tmp)
+;; 
+
+let findCollisions (world, dt, tmp) = 
+  let collisions = List.filter (fun obj -> intersects obj.rect world.frog.rect ) world.objects in
+  let newTmp = { tmp with laneCollisions = collisions } in
+  (world, dt, newTmp )
+;;
+
+
+let handleScoreUpdate (world, dt, tmp) = 
+  let newFrogRow = getRowForY (int_of_float world.frog.rect.y) in
+  let score = world.score + if newFrogRow > world.maxRow then 10 else 0 in
+  let newWorld = {world with 
+                  score; 
+                  maxRow = max newFrogRow world.maxRow
+                 } in
+  (newWorld, dt, tmp)
+;;
+
+(* a glorified check for max between score and highscore. 
+   sideeffect: save into localstorage if the max is exceeded 
+*) 
+let handleHighScoreCheck (world, dt, tmp) = 
+  let highscore = if world.score > world.highscore then (
+      (Dom.Storage.setItem "highscore" (string_of_int world.score) Dom.Storage.localStorage);
+      world.score;
     ) else world.highscore in
-  if (List.length endzoneCollisions) > 0 then (
-    let (ithCollision, _ ) = (List.hd endzoneCollisions)in
-    let endzone = (List.map (fun (i, curr) -> (i, curr || ithCollision = i)) world.endzone) in
-    if not (List.exists (fun (_, boo) -> not boo ) endzone) then { world with state=Won}
-    else { world with 
-           frog = startWorld.frog; 
-           timer = startWorld.timer; 
-           maxRow = startWorld.maxRow;
-           score = score + 200;
-           endzone; 
-         };
-  ) 
-  else if hasCarCollision || isInWater || timerIsUp || isOutOfBounds then ( 
-    if world.lives = 1
-    then { world with state = Lose } 
-    else { world with 
-           frog=startWorld.frog; 
-           timer=startWorld.timer; 
-           lives=world.lives-1 
-         }
-  ) else (
-    { world with 
-      frog; 
-      objects; 
-      score; 
-      maxRow = max newFrogRow world.maxRow;
-      timer = world.timer - dt; 
-      highscore;
-    }
-  ) 
+  let newWorld = {world with highscore} in
+  (newWorld, dt, tmp)
+;;
+
+let shrinkTimer (world, dt, tmp) = 
+  let timer = world.timer - dt in
+  let newWorld = {world with timer} in
+  (newWorld, dt, tmp)
+;;
+
+let updateLaneObjects (world, dt, tmp) =
+  let filterOutOfBounds = List.filter (fun obj -> isRectInBounds obj.rect ) in
+  let movedLaneObjects = (List.map (fun o -> updateObj o dt ) world.objects) 
+                         |> filterOutOfBounds in
+  let spawnedLaneObjects = (List.map
+                              (fun (rowNum, (cfg:laneConfigT)) -> if tmp.now > cfg.nextSpawnTime then (
+                                   cfg.nextSpawnTime <- (getJitterFromNow ()) + (int_of_float ((abs_float cfg.velocity) *. 1000. /. cfg.objectsAtOnceIsh ));
+                                   Some (makeLaneObject (rowNum, cfg));
+                                 ) 
+                                 else None) laneConfig) |> deoptionalize in
+  let objects = (movedLaneObjects @ spawnedLaneObjects ) in
+  let newWorld = {world with objects;} in
+  (newWorld, dt, tmp) 
+;;
+
+let getWorld (world, _, _) = world;;
+
+let stepWorld world now dt = 
+  (world, dt, {laneCollisions = []; now;} ) 
+  |> findCollisions
+  |> updateFrog
+  |> updateLaneObjects
+  |> shrinkTimer
+  |> handleDeathCheck 
+  |> handleEndzoneCheck 
+  |> handleGameWinCheck
+  |> handleScoreUpdate
+  |> handleHighScoreCheck
+  |> getWorld 
 ;;
