@@ -14,7 +14,7 @@ type frogT = {
 };;
 type spriteT = Car | BasicFloater | DivingTurtles;; 
 
-type gameStateT = Start | Playing | Won | Lose;;
+type gameStateT = Start | Playing | Won | Lost;;
 
 type spriteImageT = { xStart: int; yStart: int; frames: int; frameSpeed: float; width: int; height: int; number: int; };;
 
@@ -54,3 +54,8 @@ type laneConfigT = {
   objType: spriteT;
   img: spriteImageT;
 };;
+
+type tempT = {
+  laneCollisions: laneObjectT list;
+  now: int;
+}

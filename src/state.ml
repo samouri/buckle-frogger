@@ -151,11 +151,6 @@ let laneConfig = [
  * for example, collisions are detected early on in the process and then that work is reused in various other passes.
 *)
 
-type tempT = {
-  laneCollisions: laneObjectT list;
-  now: int;
-}
-
 let updateFrog (world, dt, tmp ) = 
   let frog = world.frog in
   let floatedX = try 
@@ -195,7 +190,7 @@ let handleDeathCheck (world, dt, {laneCollisions} as tmp) =
   let isDead =  hasCarCollision || isInWater || timerIsUp || isOutOfBounds in
   let newWorld = if isDead then
       match world.lives with 
-      | 1 -> { world with state = Lose }
+      | 1 -> { world with state = Lost }
       | _ -> { world with 
                frog=startWorld.frog; 
                timer=startWorld.timer; 
