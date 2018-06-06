@@ -14,7 +14,9 @@ let magnification = 1.;; (* visual scaling multiplier *)
 
 let drawImage ctx image sourceX sourceY sourceWidth sourceHeight dx dy dWidth dHeight =
   let unsafeCtx = (toUnsafe ctx) in
-  ignore @@ unsafeCtx##drawImage image sourceX sourceY sourceWidth sourceHeight dx dy dWidth dHeight;;
+  ignore @@ unsafeCtx##drawImage image sourceX sourceY sourceWidth sourceHeight dx dy dWidth dHeight;
+  ();
+;;
 
 let drawLaneObject ctx (sprite:laneObjectT) = 
   let frameCalc = floor (sprite.frameIndex /. 1000.) in
@@ -25,14 +27,30 @@ let drawLaneObject ctx (sprite:laneObjectT) =
      ) (0<->(img.number-1)));
 ;;
 
+let drawDyingFrog ctx rect leftInAnimation = 
+  let width = 32 in
+  let height = 36 in
+  let row = getRowForY (int_of_float rect.y) in
+  let y = if row > 7 && row < 13 then 227 else 276 in (* water means sink. car and endzone death is explosion *)
+  let frameXs = [230; 275; 322; 358; ] in
+  let framesLength = 4 in
+  let frame = min (framesLength - 1 ) (framesLength - (int_of_float (ceil ((float_of_int leftInAnimation) /. ((float_of_int frogAnimationLength) /. 4.))))) in
+  let startX = List.nth frameXs frame in
+  drawImage ctx spriteSheet startX y width height ((rect.x-.10.) *. magnification) (rect.y-.8.) (magnification *. (float_of_int width)) (magnification *. (float_of_int height));
+;;
+
 let drawFrog ctx (frog:frogT) = 
-  let img = match frog.direction with 
-    | Up -> frogUp;
-    | Down -> frogDown;
-    | Left -> frogLeft;
-    | Right -> frogRight in
-  let startX = float_of_int (img.xStart + if frog.leftInJump = 0. then 0 else img.width + 5) in 
-  drawImage ctx spriteSheet startX img.yStart img.width img.height ((frog.rect.x-.10.) *. magnification) frog.rect.y (magnification *. (float_of_int img.width)) (magnification *. (float_of_int img.height))
+  match frog.leftInAnimation with
+  | Some n -> drawDyingFrog ctx frog.rect n
+  | None ->
+    let img = match frog.direction with 
+      | Up -> frogUp;
+      | Down -> frogDown;
+      | Left -> frogLeft;
+      | Right -> frogRight in
+    let startX = float_of_int (img.xStart + if frog.leftInJump = 0. then 0 else img.width + 5) in
+    drawImage ctx spriteSheet startX img.yStart img.width img.height ((frog.rect.x-.10.) *. magnification) frog.rect.y (magnification *. (float_of_int img.width)) (magnification *. (float_of_int img.height));
+;;
 
 let drawStartScreen ctx = 
   Canvas2dRe.setFillStyle ctx Canvas2dRe.String "white";
@@ -145,20 +163,24 @@ let drawGrid ctx =
        )) (0 <-> rows)
   );;
 
-let render ctx (world:worldT) = 
+let drawBackground ctx = 
   Canvas2dRe.setFillStyle ctx String "rgb(1,4,69)";
   Canvas2dRe.fillRect ctx ~x:0. ~y:0. ~h: (float_of_int height) ~w:(float_of_int width);
   Canvas2dRe.setFillStyle ctx String "black";
   Canvas2dRe.fillRect ctx ~x:0. ~y:(float_of_int (getYForRow 7)) ~h: (float_of_int height) ~w:(float_of_int width);
+;;
+
+let render ctx (world:worldT) = 
+  drawBackground ctx;
   if pressedKeys.grid then drawGrid ctx;
   if pressedKeys.bbox then drawBoundingBoxes ctx world;
-  (drawGoal ctx);
-  (drawGrass ctx (getYForRow 2));
-  (drawGrass ctx (getYForRow 8));
-  (drawLives ctx world);
-  (drawTimer ctx world);
-  (drawScore ctx world);
-  (drawCars ctx world.objects);
-  (drawFrog ctx world.frog);
-  (drawCompletedEndzones ctx world);
+  drawGoal ctx;
+  drawGrass ctx (getYForRow 2);
+  drawGrass ctx (getYForRow 8);
+  drawLives ctx world;
+  drawTimer ctx world;
+  drawScore ctx world;
+  drawCars ctx world.objects;
+  drawFrog ctx world.frog;
+  drawCompletedEndzones ctx world;
 ;;

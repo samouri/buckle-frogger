@@ -10,6 +10,7 @@ type rectT = {
 type frogT = {
   rect: rectT;
   leftInJump: float;
+  leftInAnimation: int option;
   direction: directionT;
 };;
 type spriteT = Car | BasicFloater | DivingTurtles;; 

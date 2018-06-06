@@ -30,16 +30,15 @@ let keydown (evt:Dom.event) =
 let xDown : int option ref = ref None;;
 let yDown : int option ref = ref None;;
 
-let handleTouchStart evt = 
-  [%raw "arguments[0].preventDefault()"];
+let handleTouchStart _ = 
+  ignore @@ [%raw "arguments[0].preventDefault()"];
 
   xDown := Some [%raw "arguments[0].touches[0].clientX"];
   yDown := Some [%raw "arguments[0].touches[0].clientY"];
-  ();
 ;;
 
-let handleTouchMove evt = 
-  [%raw "arguments[0].preventDefault()"];
+let handleTouchMove _ = 
+  ignore @@ [%raw "arguments[0].preventDefault()"];
 
   match (!xDown, !yDown) with
   | (Some xdwn, Some ydwn) ->
@@ -59,6 +58,7 @@ let handleTouchMove evt =
 (Webapi.Dom.Window.addEventListener "touchmove" handleTouchMove Webapi.Dom.window );;
 (Webapi.Dom.Window.addEventListener "keydown" keydown Webapi.Dom.window );;
 
+let frogAnimationLength = 1000;;
 let startWorld : worldT = { 
   frog = { 
     rect = { 
@@ -69,6 +69,7 @@ let startWorld : worldT = {
     };
     direction = Up;
     leftInJump = 0.;
+    leftInAnimation = None;
   };
   objects = [];
   keys = pressedKeys;
@@ -98,19 +99,54 @@ let secondsPerWidthToPixels vel dt =
   let speed = (float_of_int width) /. vel in
   speed *. (float_of_int dt) /. 1000.;;
 
-let updateObj obj dt = { obj with 
-                         rect = { obj.rect with 
-                                  x = obj.rect.x +. secondsPerWidthToPixels obj.velocity dt
-                                };
-                         frameIndex = 
-                           let nextFrameIndex = (obj.frameIndex +. ((float_of_int dt) *. obj.img.frameSpeed )) in
-                           if (int_of_float (nextFrameIndex /. 1000.)) < obj.img.frames then nextFrameIndex else 0.;
-                       };;
+let updateObj obj dt = 
+  let nextFrameIndex = (obj.frameIndex +. ((float_of_int dt) *. obj.img.frameSpeed )) in
+  let nextFrame = nextFrameIndex /. 1000. in
+  let frameSpeed = 
+    if (nextFrame >= (float_of_int obj.img.frames) && obj.img.frameSpeed > 0.) || (nextFrame <= 0. && obj.img.frameSpeed < 0.) then 
+      obj.img.frameSpeed *. -1.
+    else 
+      obj.img.frameSpeed in
+  { 
+    obj with 
+    rect = { 
+      obj.rect with 
+      x = obj.rect.x +. secondsPerWidthToPixels obj.velocity dt
+    };
+    img = {
+      obj.img with
+      frameSpeed;
+    };
+    frameIndex = if nextFrame < float_of_int obj.img.frames && nextFrame > 0. then 
+        nextFrameIndex 
+      else if obj.objType = DivingTurtles then 
+        obj.frameIndex
+      else
+        0.;
+  };;
 
 let isCar (obj:laneObjectT) = match obj.objType with Car -> true | _ -> false;; 
 
-let makeLaneObject ((row, { img; velocity; objType; }): (int * laneConfigT)) = 
-  let direction = if velocity > 0. then Right else Left in 
+let twoTurtleCount = ref 0;;
+let threeTurtleCount = ref 0;;
+
+let makeLaneObject ((row, laneConfig): (int * laneConfigT)) = 
+  let direction = if laneConfig.velocity > 0. then Right else Left in 
+  let (objType, img) = match row with
+    | 9 -> 
+      threeTurtleCount := !threeTurtleCount + 1; 
+      if !threeTurtleCount mod 4 = 0 then 
+        (DivingTurtles, divingThreeTurtles) 
+      else 
+        (laneConfig.objType, threeTurtleImage);
+    | 12 ->
+      twoTurtleCount := !twoTurtleCount + 1;  
+      if !twoTurtleCount mod 4 = 0 then
+        (DivingTurtles, divingTwoTurtles)
+      else
+        (laneConfig.objType, twoTurtleImage);
+    | _ -> (laneConfig.objType, laneConfig.img)
+  in 
   {
     rect = {
       x = (match direction with 
@@ -123,7 +159,7 @@ let makeLaneObject ((row, { img; velocity; objType; }): (int * laneConfigT)) =
     };
     direction;
     img;
-    velocity;
+    velocity = laneConfig.velocity;
     objType;
     frameIndex = 0.;
   };;
@@ -141,7 +177,7 @@ let laneConfig = [
   (9, { velocity = -10.; objectsAtOnceIsh = 2.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=threeTurtleImage;} );
   (10, { velocity = 6.; objectsAtOnceIsh = 3.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=smallLogImage;} );
   (11, { velocity = 4.; objectsAtOnceIsh = 1.7; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=bigLogImage; } );
-  (12, {velocity = -6.; objectsAtOnceIsh = 2.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=twoTurleImage;} );
+  (12, {velocity = -6.; objectsAtOnceIsh = 2.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=twoTurtleImage;} );
   (13, {velocity = 5.; objectsAtOnceIsh = 3.; nextSpawnTime = (getJitterFromNow ()); objType = BasicFloater; img=mediumLogImage; } );
 ];; 
 
@@ -154,10 +190,11 @@ let laneConfig = [
 let updateFrog (world, dt, tmp ) = 
   let frog = world.frog in
   let floatedX = try 
-      let floatieThing = List.find (fun (obj:laneObjectT) -> match obj.objType with BasicFloater -> true | _ -> false) tmp.laneCollisions in
+      let floatieThing = List.find (fun (obj:laneObjectT) -> match obj.objType with Car -> false | _  -> true) tmp.laneCollisions in
       secondsPerWidthToPixels floatieThing.velocity dt 
     with Not_found -> 0. in
-  let newFrog = if frog.leftInJump > 0. then
+  let newFrog =  if isSome frog.leftInAnimation then world.frog
+    else if frog.leftInJump > 0. then
       let distanceToTravel = min ((float_of_int tileSize) *. ((float_of_int dt) /. 100. )) frog.leftInJump in
       { frog with 
         rect = {
@@ -182,21 +219,32 @@ let updateFrog (world, dt, tmp ) =
   ({ world with frog = newFrog }, dt, tmp)
 ;;
 
+let rejectUnderWaterTurtles laneObjects = List.filter 
+    (fun (obj:laneObjectT) -> 
+       not (obj.objType = DivingTurtles) ||
+       not ( (floor ( obj.frameIndex /. 1000.) ) = 5.)) 
+    laneObjects
+;;
+
 let handleDeathCheck (world, dt, {laneCollisions} as tmp) = 
   let hasCarCollision = List.exists isCar laneCollisions in
-  let isInWater = List.length laneCollisions = 0 && (getRowForY (int_of_float world.frog.rect.y)) > 7 && world.frog.leftInJump = 0. in
+  let isInWater = laneCollisions |> rejectUnderWaterTurtles |> List.length = 0 && 
+                  (getRowForY (int_of_float world.frog.rect.y)) > 7 && 
+                  world.frog.leftInJump = 0. in
   let isOutOfBounds = isRectOutOfBounds world.frog.rect in
   let timerIsUp = world.timer <= 0 in
   let isDead =  hasCarCollision || isInWater || timerIsUp || isOutOfBounds in
-  let newWorld = if isDead then
-      match world.lives with 
-      | 1 -> { world with state = Lost }
-      | _ -> { world with 
-               frog=startWorld.frog; 
-               timer=startWorld.timer; 
-               lives=world.lives-1 
-             } 
-    else world
+  (* either start an animation, or handle death scenario once animation is over *)
+  let newWorld = match (isDead, world.frog.leftInAnimation, world.lives) with 
+    | (false, None, _) -> world
+    | (true, None, _) -> { world with frog = { world.frog with leftInAnimation = Some frogAnimationLength } }
+    | (_, Some 0, 1) -> { world with state = Lost }
+    | (_, Some 0, n) -> { world with 
+                          frog = startWorld.frog; 
+                          timer = startWorld.timer; 
+                          lives = n - 1 
+                        } 
+    | (_, Some n, _) -> { world with frog = { world.frog with leftInAnimation = Some (max 0 (n - dt)) } }
   in
   (newWorld, dt, tmp)
 ;;
@@ -240,15 +288,16 @@ let findCollisions (world, dt, tmp) =
 let handleScoreUpdate (world, dt, tmp) = 
   let newFrogRow = getRowForY (int_of_float world.frog.rect.y) in
   let score = world.score + if newFrogRow > world.maxRow then 10 else 0 in
-  let newWorld = {world with 
-                  score; 
-                  maxRow = max newFrogRow world.maxRow
-                 } in
+  let newWorld = {
+    world with 
+    score; 
+    maxRow = max newFrogRow world.maxRow
+  } in
   (newWorld, dt, tmp)
 ;;
 
 (* a glorified check for max between score and highscore. 
-   sideeffect: save into localstorage if the max is exceeded 
+   side effect: save into localstorage if the max is exceeded 
 *) 
 let handleHighScoreCheck (world, dt, tmp) = 
   let highscore = if world.score > world.highscore then (

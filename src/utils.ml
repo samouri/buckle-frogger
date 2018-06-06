@@ -71,7 +71,7 @@ let isRectOutOfBounds rect =
 let isRectInBounds =  not << isRectOutOfBounds;;
 
 
-external spritesUrl: string = "../assets/frogger_sprites.png" [@@bs.module];;
+external spritesUrl: string = "../assets/frogger_sprites2.png" [@@bs.module];;
 external frogGoalUrl: string = "../assets/goal_frog_0.png" [@@bs.module];;
 external lifeUrl: string = "../assets/life.png" [@@bs.module];;
 
@@ -94,8 +94,9 @@ let pinkCarImage = makeSpriteImage 10 262 0 0. 31;;
 let raceCarImage = makeSpriteImage 40 260 0 0. 33;;
 let whiteTruckImage = makeSpriteImage 110 296 0 0. 43;;
 let threeTurtleImage = makeSpriteImage ~number:3 15 402 3 2. 35;;
-let divingThreeTurtles = makeSpriteImage ~number:3 15 402 6 2. 35;;
-let twoTurleImage = makeSpriteImage ~number:2 15 402 3 2. 35;;
+let divingThreeTurtles = makeSpriteImage ~number:3 15 402 6 2. 36;;
+let twoTurtleImage = makeSpriteImage ~number:2 15 402 3 2. 35;;
+let divingTwoTurtles = makeSpriteImage ~number:2 15 402 6 2. 36;;
 let smallLogImage = makeSpriteImage 10 225 0 0. 80;;
 let mediumLogImage = makeSpriteImage 10 193 0 0. 115;;
 let bigLogImage = makeSpriteImage 10 162 0 0. 175;;
