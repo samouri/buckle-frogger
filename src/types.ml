@@ -29,7 +29,7 @@ type laneObjectT = {
 }
 
 (* Represents the values of relevant key bindings. *)
-type keys = {
+type inputT = {
   mutable direction: directionT option;
   mutable bbox: bool;
   mutable grid: bool;
@@ -37,7 +37,7 @@ type keys = {
 
 type worldT = { 
   frog: frogT;
-  keys: keys;
+  keys: inputT;
   objects: laneObjectT list;
   state: gameStateT;
   lives: int;
