@@ -5,9 +5,6 @@ open State
 
 external toUnsafe : 'a -> < .. > Js.t = "%identity"
 
-let windowHeight = Window.innerHeight window;;
-let windowWidth = Window.innerWidth window;;
-
 (* let worldHeight = rows * tileSize;;
    let worldWidth = cols * tileSize;; *)
 let magnification = 1.;; (* visual scaling multiplier *)
@@ -172,8 +169,8 @@ let drawBackground ctx =
 
 let render ctx (world:worldT) = 
   drawBackground ctx;
-  if pressedKeys.grid then drawGrid ctx;
-  if pressedKeys.bbox then drawBoundingBoxes ctx world;
+  if input.grid then drawGrid ctx;
+  if input.bbox then drawBoundingBoxes ctx world;
   drawGoal ctx;
   drawGrass ctx (getYForRow 2);
   drawGrass ctx (getYForRow 8);

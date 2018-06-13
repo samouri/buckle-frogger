@@ -18,7 +18,7 @@ let rec gameloop ctx (world:worldT) =
    | Lost -> drawLoseScreen ctx
   ); 
 
-  let nextWorld = match (world.state, pressedKeys.direction) with
+  let nextWorld = match (world.state, input.direction) with
     | (Playing, _) -> stepWorld world now dt 
     | (_, None ) -> world
     | (_, Some _) -> {startWorld with 
@@ -27,7 +27,7 @@ let rec gameloop ctx (world:worldT) =
   in
 
   lastTime := int_of_float (Js.Date.now ());
-  pressedKeys.direction <- None; (* remove the press once processed *)
+  input.direction <- None; (* remove the press once processed *)
   (Webapi.requestAnimationFrame (fun _ -> (gameloop ctx nextWorld )))
 ;;
 

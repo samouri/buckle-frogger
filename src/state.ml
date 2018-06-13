@@ -9,7 +9,7 @@ let savedHighScore = match (Dom.Storage.getItem "highscore" Dom.Storage.localSto
 ;;
 
 (* Represents the values of relevant key bindings. *)
-let pressedKeys = {
+let input = {
   direction = None;
   bbox = false;
   grid = false;
@@ -18,12 +18,12 @@ let pressedKeys = {
 (* Keydown event handler translates a key press *)
 let keydown (evt:Dom.event) =
   match (toUnsafe evt)##keyCode with
-  | 38 | 32 | 87 -> pressedKeys.direction <- Some Up
-  | 39 | 68 -> pressedKeys.direction <- Some Right
-  | 37 | 65 -> pressedKeys.direction <- Some Left
-  | 40 | 83 -> pressedKeys.direction <- Some Down
-  | 66 -> pressedKeys.bbox <- (not pressedKeys.bbox)
-  | 71 -> pressedKeys.grid <- (not pressedKeys.grid)
+  | 38 | 32 | 87 -> input.direction <- Some Up
+  | 39 | 68 -> input.direction <- Some Right
+  | 37 | 65 -> input.direction <- Some Left
+  | 40 | 83 -> input.direction <- Some Down
+  | 66 -> input.bbox <- (not input.bbox)
+  | 71 -> input.grid <- (not input.grid)
   | _ -> Js.log ("did not find nothing" ^ ((toUnsafe evt)##keyCode))
 ;;
 
@@ -47,9 +47,9 @@ let handleTouchMove _ =
     let xDiff = xdwn - xUp in
     let yDiff = ydwn - yUp in
     if abs xDiff > abs yDiff then 
-      pressedKeys.direction <- if xDiff > 0 then Some Left else Some Right
+      input.direction <- if xDiff > 0 then Some Left else Some Right
     else
-      (pressedKeys.direction <- if yDiff > 0 then Some Up else Some Down);
+      (input.direction <- if yDiff > 0 then Some Up else Some Down);
 
   | (_,_) -> ();
 ;;
@@ -72,7 +72,7 @@ let startWorld : worldT = {
     leftInAnimation = None;
   };
   objects = [];
-  keys = pressedKeys;
+  keys = input;
   state = Start;
   lives = 5;
   score = 0;
@@ -204,7 +204,7 @@ let updateFrog (world, dt, tmp ) =
         };
         leftInJump = frog.leftInJump -. distanceToTravel;
       }
-    else match pressedKeys.direction with 
+    else match input.direction with 
       | None -> { frog with rect= { frog.rect with x = frog.rect.x +. floatedX } }
       | Some direction -> 
         let nextRect = {frog.rect with
