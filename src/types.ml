@@ -1,53 +1,87 @@
-type rectT = {
-  x: float;
-  y: float;
-  width: int;
-  height: int;
-}
+module Rect = struct
+  type t =
+    { x : float
+    ; y : float
+    ; width : int
+    ; height : int
+    }
+end
 
-type frogT = {
-  rect: rectT;
-  leftInJump: float;
-  leftInAnimation: int option;
-  direction: Direction.t;
-};;
-type spriteT = Car | BasicFloater | DivingTurtles;; 
+module Frog = struct
+  type t =
+    { rect : Rect.t
+    ; left_in_jump : float
+    ; left_in_animation : int option
+    ; direction : Direction.t
+    }
+end
 
-type gameStateT = Start | Playing | Won | Lost;;
+module Sprite = struct
+  type t =
+    | Car
+    | BasicFloater
+    | DivingTurtles
+end
 
-type spriteImageT = { xStart: int; yStart: int; frames: int; frameSpeed: float; width: int; height: int; number: int; };;
+module Game_state = struct
+  type t =
+    | Start
+    | Playing
+    | Won
+    | Lost
+end
 
-type laneObjectT = {
-  rect: rectT;
-  frameIndex: float;
-  direction: Direction.t;
-  img: spriteImageT;
-  velocity: float;
-  objType: spriteT;
-}
+module Sprite_image = struct
+  type t =
+    { x_start : int
+    ; y_start : int
+    ; frames : int
+    ; frame_speed : float
+    ; width : int
+    ; height : int
+    ; number : int
+    }
+end
 
-type worldT = { 
-  frog: frogT;
-  input: Input.t;
-  objects: laneObjectT list;
-  state: gameStateT;
-  lives: int;
-  score: int;
-  highscore: int;
-  maxRow: int;
-  timer: int;
-  endzone: (int * bool) list;
-};;
+module Lane_object = struct
+  type t =
+    { rect : Rect.t
+    ; frame_index : float
+    ; direction : Direction.t
+    ; img : Sprite_image.t
+    ; velocity : float
+    ; obj_type : Sprite.t
+    }
+end
 
-type laneConfigT = {
-  velocity: float;
-  objectsAtOnceIsh: float;
-  mutable nextSpawnTime: int;
-  objType: spriteT;
-  img: spriteImageT;
-};;
+module World = struct
+  type t =
+    { frog : Frog.t
+    ; input : Input.t
+    ; objects : Lane_object.t list
+    ; state : Game_state.t
+    ; lives : int
+    ; score : int
+    ; highscore : int
+    ; max_row : int
+    ; timer : int
+    ; endzone : (int * bool) list
+    }
+end
 
-type tempT = {
-  laneCollisions: laneObjectT list;
-  now: int;
-}
+module Lane_config = struct
+  type t =
+    { velocity : float
+    ; objects_at_once_ish : float
+    ; mutable next_spawn_time : int
+    ; obj_type : Sprite.t
+    ; img : Sprite_image.t
+    }
+end
+
+module Temp = struct
+  type t =
+    { lane_collisions : Lane_object.t list
+    ; now : int
+    }
+end

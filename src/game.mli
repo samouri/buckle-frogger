@@ -1,4 +1,4 @@
-type t = Types.worldT
+type t = Types.World.t
 
 type event =
   | Start
@@ -8,7 +8,6 @@ type event =
 
 val frog_animation_length : int
 val start_timer_ms : int
-val endzone_rects : (int * Types.rectT) list
-
+val endzone_rects : (int * Types.Rect.t) list
 val init : highscore:int -> t
 val step : t -> input:Input.t -> now_ms:int -> dt_ms:int -> t * event list
