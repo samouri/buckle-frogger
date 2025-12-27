@@ -1,4 +1,5 @@
 open Js_of_ocaml
+open Bindings
 open Types
 
 (* function composition *)
@@ -72,15 +73,21 @@ let isRectOutOfBounds rect =
 let isRectInBounds =  not << isRectOutOfBounds;;
 
 let now_ms () : float =
-  let date = Js.Unsafe.get Js.Unsafe.global "Date" in
-  let now_fn = Js.Unsafe.get date "now" in
-  Js.float_of_number (Js.Unsafe.fun_call now_fn [||])
+  let global = Js.Unsafe.global in
+  let perf : Js.Unsafe.any Js.optdef = Js.Unsafe.get global "performance" in
+  let value =
+    if Js.Optdef.test perf
+    then
+      let perf_obj = Js.Optdef.get perf (fun () -> assert false) in
+      Js.Unsafe.meth_call perf_obj "now" [||]
+    else
+      let date = Js.Unsafe.get global "Date" in
+      Js.Unsafe.meth_call date "now" [||]
+  in
+  Js.float_of_number value
 
 
-let create_image src =
-  let image = Dom_html.createImg Dom_html.document in
-  image##.src := Js.string src;
-  image
+let create_image = Image.create
 
 let spriteSheet = create_image "assets/frogger_sprites2.png";;
 let goalSprite = create_image "assets/goal_frog_0.png";;

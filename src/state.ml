@@ -21,6 +21,8 @@ let input = { direction = None; bbox = false; grid = false }
 
 (* Keydown event handler translates a key press *)
 let keydown (evt : Dom_html.keyboardEvent Js.t) =
+  Bindings.Console.log
+    (Printf.sprintf "keydown: keyCode=%d" evt##.keyCode);
   (match evt##.keyCode with
    | 38 | 32 | 87 -> input.direction <- Some Up
    | 39 | 68 -> input.direction <- Some Right
@@ -29,7 +31,7 @@ let keydown (evt : Dom_html.keyboardEvent Js.t) =
    | 66 -> input.bbox <- not input.bbox
    | 71 -> input.grid <- not input.grid
    | code ->
-     Firebug.console##log
+     Console.console##log
        (Js.string ("did not find nothing" ^ string_of_int code)));
   Js._true
 
@@ -40,8 +42,8 @@ let handleTouchStart (evt : Dom_html.touchEvent Js.t) =
   Dom.preventDefault evt;
   (match Js.Optdef.to_option (evt##.touches##item 0) with
    | Some touch ->
-     xDown := Some touch##.clientX;
-     yDown := Some touch##.clientY
+     xDown := Some (touch##.clientX |> Js.to_int32 |> Int32.to_int);
+     yDown := Some (touch##.clientY |> Js.to_int32 |> Int32.to_int)
    | None -> ());
   Js._true
 
@@ -49,8 +51,8 @@ let handleTouchMove (evt : Dom_html.touchEvent Js.t) =
   Dom.preventDefault evt;
   (match (!xDown, !yDown, Js.Optdef.to_option (evt##.touches##item 0)) with
    | Some xdwn, Some ydwn, Some touch ->
-     let xUp = touch##.clientX in
-     let yUp = touch##.clientY in
+     let xUp = touch##.clientX |> Js.to_int32 |> Int32.to_int in
+     let yUp = touch##.clientY |> Js.to_int32 |> Int32.to_int in
      let xDiff = xdwn - xUp in
      let yDiff = ydwn - yUp in
      if abs xDiff > abs yDiff

@@ -1,23 +1,9 @@
-open Js_of_ocaml
+open Bindings
 open Types
 open Utils
 open State
 
 let magnification = 1. (* visual scaling multiplier *)
-
-let set_fill_style ctx color =
-  ctx##.fillStyle := Js.Unsafe.coerce (Js.string color)
-
-let set_stroke_style ctx color =
-  ctx##.strokeStyle := Js.Unsafe.coerce (Js.string color)
-
-let fill_rect ctx ~x ~y ~w ~h = ctx##fillRect x y w h
-let stroke_rect ctx ~x ~y ~w ~h = ctx##strokeRect x y w h
-
-let fill_text ctx ~x ~y text = ctx##fillText (Js.string text) x y
-
-let drawImage ctx image sourceX sourceY sourceWidth sourceHeight dx dy dWidth dHeight =
-  ctx##drawImage_full image sourceX sourceY sourceWidth sourceHeight dx dy dWidth dHeight
 
 let drawLaneObject ctx (sprite : laneObjectT) =
   let frameCalc = floor (sprite.frameIndex /. 1000.) in
@@ -25,12 +11,13 @@ let drawLaneObject ctx (sprite : laneObjectT) =
   let startX = float_of_int img.xStart +. frameCalc *. float_of_int img.width in
   List.iter
     (fun i ->
-      drawImage ctx spriteSheet startX (float_of_int img.yStart)
-        (float_of_int img.width) (float_of_int img.height)
-        ((sprite.rect.x +. float_of_int (img.width * i)) *. magnification)
-        sprite.rect.y
-        (magnification *. float_of_int img.width)
-        (magnification *. float_of_int tileSize))
+      Canvas.draw_image ctx spriteSheet ~source_x:startX
+        ~source_y:(float_of_int img.yStart) ~source_w:(float_of_int img.width)
+        ~source_h:(float_of_int img.height)
+        ~dx:((sprite.rect.x +. float_of_int (img.width * i)) *. magnification)
+        ~dy:sprite.rect.y
+        ~d_w:(magnification *. float_of_int img.width)
+        ~d_h:(magnification *. float_of_int tileSize))
     (0 <-> (img.number - 1))
 
 let drawDyingFrog ctx rect leftInAnimation =
@@ -48,12 +35,11 @@ let drawDyingFrog ctx rect leftInAnimation =
            (ceil (float_of_int leftInAnimation /. frame_duration)))
   in
   let startX = List.nth frameXs frame in
-  drawImage ctx spriteSheet (float_of_int startX) (float_of_int y)
-    (float_of_int width) (float_of_int height)
-    ((rect.x -. 10.) *. magnification)
-    (rect.y -. 8.)
-    (magnification *. float_of_int width)
-    (magnification *. float_of_int height)
+  Canvas.draw_image ctx spriteSheet ~source_x:(float_of_int startX)
+    ~source_y:(float_of_int y) ~source_w:(float_of_int width)
+    ~source_h:(float_of_int height) ~dx:((rect.x -. 10.) *. magnification)
+    ~dy:(rect.y -. 8.) ~d_w:(magnification *. float_of_int width)
+    ~d_h:(magnification *. float_of_int height)
 
 let drawFrog ctx (frog : frogT) =
   match frog.leftInAnimation with
@@ -67,49 +53,56 @@ let drawFrog ctx (frog : frogT) =
       | Right -> frogRight
     in
     let startX = float_of_int (img.xStart + if frog.leftInJump = 0. then 0 else img.width + 5) in
-    drawImage ctx spriteSheet startX (float_of_int img.yStart)
-      (float_of_int img.width) (float_of_int img.height)
-      ((frog.rect.x -. 10.) *. magnification)
-      frog.rect.y (magnification *. float_of_int img.width)
-      (magnification *. float_of_int img.height)
+    Canvas.draw_image ctx spriteSheet ~source_x:startX
+      ~source_y:(float_of_int img.yStart) ~source_w:(float_of_int img.width)
+      ~source_h:(float_of_int img.height)
+      ~dx:((frog.rect.x -. 10.) *. magnification) ~dy:frog.rect.y
+      ~d_w:(magnification *. float_of_int img.width)
+      ~d_h:(magnification *. float_of_int img.height)
 
 let drawStartScreen ctx =
-  set_fill_style ctx "white";
-  fill_rect ctx ~x:0. ~y:0. ~h:(float_of_int height) ~w:(float_of_int width);
-  set_fill_style ctx "black";
-  ctx##.font := Js.string "60px/1 sans-serif";
-  fill_text ctx ~x:80. ~y:200. "Frogger";
-  ctx##.font := Js.string "20px/1 sans-serif";
-  fill_text ctx ~x:80. ~y:280. "Press any key to start the game"
+  Canvas.set_fill_style ctx "white";
+  Canvas.fill_rect ctx ~x:0. ~y:0. ~h:(float_of_int height)
+    ~w:(float_of_int width);
+  Canvas.set_fill_style ctx "black";
+  Canvas.set_font ctx "60px/1 sans-serif";
+  Canvas.fill_text ctx ~x:80. ~y:200. "Frogger";
+  Canvas.set_font ctx "20px/1 sans-serif";
+  Canvas.fill_text ctx ~x:80. ~y:280. "Press any key to start the game"
 
 let drawWinScreen ctx =
-  set_fill_style ctx "white";
-  fill_rect ctx ~x:0. ~y:0. ~h:(float_of_int height) ~w:(float_of_int width);
-  set_fill_style ctx "black";
-  ctx##.font := Js.string "60px/1 sans-serif";
-  fill_text ctx ~x:80. ~y:150. "You Win!";
-  ctx##.font := Js.string "20px/1 sans-serif";
-  fill_text ctx ~x:50. ~y:280. "Press any key to start another the game"
+  Canvas.set_fill_style ctx "white";
+  Canvas.fill_rect ctx ~x:0. ~y:0. ~h:(float_of_int height)
+    ~w:(float_of_int width);
+  Canvas.set_fill_style ctx "black";
+  Canvas.set_font ctx "60px/1 sans-serif";
+  Canvas.fill_text ctx ~x:80. ~y:150. "You Win!";
+  Canvas.set_font ctx "20px/1 sans-serif";
+  Canvas.fill_text ctx ~x:50. ~y:280. "Press any key to start another the game"
 
 let drawLoseScreen ctx =
-  set_fill_style ctx "white";
-  fill_rect ctx ~x:0. ~y:0. ~h:(float_of_int height) ~w:(float_of_int width);
-  set_fill_style ctx "black";
-  ctx##.font := Js.string "60px/1 sans-serif";
-  fill_text ctx ~x:80. ~y:200. "You Lose";
-  ctx##.font := Js.string "20px/1 sans-serif";
-  fill_text ctx ~x:50. ~y:280. "Press any key to start another game"
+  Canvas.set_fill_style ctx "white";
+  Canvas.fill_rect ctx ~x:0. ~y:0. ~h:(float_of_int height)
+    ~w:(float_of_int width);
+  Canvas.set_fill_style ctx "black";
+  Canvas.set_font ctx "60px/1 sans-serif";
+  Canvas.fill_text ctx ~x:80. ~y:200. "You Lose";
+  Canvas.set_font ctx "20px/1 sans-serif";
+  Canvas.fill_text ctx ~x:50. ~y:280. "Press any key to start another game"
 
 let drawGoal ctx =
   let y = getYForRow 15 in
-  drawImage ctx spriteSheet 0. 62. 398. 45. 0. (float_of_int (y + halfTileSize))
-    (magnification *. float_of_int width)
-    (magnification *. float_of_int (tileSize + halfTileSize))
+  Canvas.draw_image ctx spriteSheet ~source_x:0. ~source_y:62.
+    ~source_w:398. ~source_h:45. ~dx:0.
+    ~dy:(float_of_int (y + halfTileSize))
+    ~d_w:(magnification *. float_of_int width)
+    ~d_h:(magnification *. float_of_int (tileSize + halfTileSize))
 
 let drawGrass ctx y =
-  drawImage ctx spriteSheet 0. 120. 398. 33. 0. (float_of_int y)
-    (magnification *. float_of_int width)
-    (magnification *. float_of_int tileSize)
+  Canvas.draw_image ctx spriteSheet ~source_x:0. ~source_y:120.
+    ~source_w:398. ~source_h:33. ~dx:0. ~dy:(float_of_int y)
+    ~d_w:(magnification *. float_of_int width)
+    ~d_h:(magnification *. float_of_int tileSize)
 
 let rec drawCars ctx cars =
   match cars with
@@ -119,40 +112,41 @@ let rec drawCars ctx cars =
     drawCars ctx tl
 
 let drawLives ctx world =
-  set_fill_style ctx "red";
+  Canvas.set_fill_style ctx "red";
   List.iter
     (fun i ->
-      drawImage ctx lifeSprite 0. 0. 34. 40. (float_of_int (10 + (20 * i)))
-        (float_of_int (getYForRow 1)) 28. 32.)
+      Canvas.draw_image ctx lifeSprite ~source_x:0. ~source_y:0.
+        ~source_w:34. ~source_h:40. ~dx:(float_of_int (10 + (20 * i)))
+        ~dy:(float_of_int (getYForRow 1)) ~d_w:28. ~d_h:32.)
     (0 <-> (world.lives - 2))
 
 let drawTimer ctx world =
-  set_fill_style ctx "rgb(49,220,39)";
+  Canvas.set_fill_style ctx "rgb(49,220,39)";
   let pixels =
     int_of_float
       ((float_of_int world.timer /. float_of_int startWorld.timer)
        *. (float_of_int width /. 2.5))
   in
-  fill_rect ctx
+  Canvas.fill_rect ctx
     ~x:(float_of_int (width - (tileSize * 2) - pixels - 3))
     ~y:(float_of_int (getYForRow 1) +. 10.)
     ~w:(float_of_int pixels) ~h:15.;
-  set_fill_style ctx "rgb(251,249,55)";
-  fill_text ctx ~x:(float_of_int (width - (tileSize * 2)))
+  Canvas.set_fill_style ctx "rgb(251,249,55)";
+  Canvas.fill_text ctx ~x:(float_of_int (width - (tileSize * 2)))
     ~y:(float_of_int (getYForRow 1) +. 25.) "TIME"
 
 let drawScore ctx world =
   let scoreText = padWithZeros (string_of_int world.score) 5 in
   let highscoreText = padWithZeros (string_of_int world.highscore) 5 in
-  set_fill_style ctx "rgb(222,222,246)";
-  fill_text ctx ~x:(float_of_int (tileSize * 2))
+  Canvas.set_fill_style ctx "rgb(222,222,246)";
+  Canvas.fill_text ctx ~x:(float_of_int (tileSize * 2))
     ~y:(float_of_int (getYForRow 16 + halfTileSize + 3)) "1-UP";
-  fill_text ctx ~x:(float_of_int (tileSize * 5))
+  Canvas.fill_text ctx ~x:(float_of_int (tileSize * 5))
     ~y:(float_of_int (getYForRow 16 + halfTileSize + 3)) "HI-SCORE";
-  set_fill_style ctx "rgb(252,13,27)";
-  fill_text ctx ~x:(float_of_int (tileSize + halfTileSize))
+  Canvas.set_fill_style ctx "rgb(252,13,27)";
+  Canvas.fill_text ctx ~x:(float_of_int (tileSize + halfTileSize))
     ~y:(float_of_int (getYForRow 15) +. 10.) scoreText;
-  fill_text ctx ~x:(float_of_int ((tileSize * 5) + 10))
+  Canvas.fill_text ctx ~x:(float_of_int ((tileSize * 5) + 10))
     ~y:(float_of_int (getYForRow 15) +. 10.) highscoreText
 
 let drawCompletedEndzones ctx world =
@@ -160,8 +154,9 @@ let drawCompletedEndzones ctx world =
     (fun (i, rect) ->
       if List.assoc i world.endzone
       then
-        drawImage ctx goalSprite 0. 0. 34. 40. rect.x
-          (float_of_int (tileSize * 2)) 28. 32.)
+        Canvas.draw_image ctx goalSprite ~source_x:0. ~source_y:0.
+          ~source_w:34. ~source_h:40. ~dx:rect.x
+          ~dy:(float_of_int (tileSize * 2)) ~d_w:28. ~d_h:32.)
     endzoneRects
 
 let drawBoundingBoxes ctx world =
@@ -175,38 +170,40 @@ let drawBoundingBoxes ctx world =
           "blue")
         else "red"
       in
-      set_stroke_style ctx color;
-      stroke_rect ctx ~x:rect.x ~y:rect.y ~w:(float_of_int rect.width)
-        ~h:(float_of_int rect.height))
+      Canvas.set_stroke_style ctx color;
+      Canvas.stroke_rect ctx ~x:rect.x ~y:rect.y
+        ~w:(float_of_int rect.width) ~h:(float_of_int rect.height))
     world.objects;
   let rect = world.frog.rect in
-  set_stroke_style ctx !frogBoxColor;
-  stroke_rect ctx ~x:rect.x ~y:rect.y ~w:(float_of_int rect.width)
+  Canvas.set_stroke_style ctx !frogBoxColor;
+  Canvas.stroke_rect ctx ~x:rect.x ~y:rect.y ~w:(float_of_int rect.width)
     ~h:(float_of_int rect.height)
 
 let drawGrid ctx =
-  set_stroke_style ctx "red";
+  Canvas.set_stroke_style ctx "red";
   List.iter
     (fun i ->
-      ctx##beginPath;
-      ctx##moveTo (float_of_int (i * tileSize)) 0.;
-      ctx##lineTo (float_of_int (i * tileSize)) (float_of_int height);
-      ctx##stroke)
+      Canvas.begin_path ctx;
+      Canvas.move_to ctx ~x:(float_of_int (i * tileSize)) ~y:0.;
+      Canvas.line_to ctx ~x:(float_of_int (i * tileSize)) ~y:(float_of_int height);
+      Canvas.stroke ctx)
     (0 <-> cols);
   List.iter
     (fun i ->
-      ctx##beginPath;
-      ctx##moveTo 0. (float_of_int (i * tileSize));
-      ctx##lineTo (float_of_int width) (float_of_int (i * tileSize));
-      ctx##stroke)
+      Canvas.begin_path ctx;
+      Canvas.move_to ctx ~x:0. ~y:(float_of_int (i * tileSize));
+      Canvas.line_to ctx ~x:(float_of_int width)
+        ~y:(float_of_int (i * tileSize));
+      Canvas.stroke ctx)
     (0 <-> rows)
 
 let drawBackground ctx =
-  set_fill_style ctx "rgb(1,4,69)";
-  fill_rect ctx ~x:0. ~y:0. ~h:(float_of_int height) ~w:(float_of_int width);
-  set_fill_style ctx "black";
-  fill_rect ctx ~x:0. ~y:(float_of_int (getYForRow 7)) ~h:(float_of_int height)
-    ~w:(float_of_int width)
+  Canvas.set_fill_style ctx "rgb(1,4,69)";
+  Canvas.fill_rect ctx ~x:0. ~y:0. ~h:(float_of_int height)
+    ~w:(float_of_int width);
+  Canvas.set_fill_style ctx "black";
+  Canvas.fill_rect ctx ~x:0. ~y:(float_of_int (getYForRow 7))
+    ~h:(float_of_int height) ~w:(float_of_int width)
 
 let render ctx (world : worldT) =
   drawBackground ctx;
