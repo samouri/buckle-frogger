@@ -45,6 +45,19 @@ module Window : sig
   val on_load : (unit -> unit) -> unit
 end
 
+module Storage : sig
+  val get : string -> string option
+  val set : string -> string -> unit
+end
+
+module Input_events : sig
+  val on_keydown : (int -> unit) -> unit
+  val on_touch :
+    start:(int * int -> unit) ->
+    move:(int * int -> unit) ->
+    unit
+end
+
 module Console : sig
   val log : string -> unit
 end

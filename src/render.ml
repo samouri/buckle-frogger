@@ -1,7 +1,8 @@
 open Bindings
+open Direction
 open Types
 open Utils
-open State
+open Game
 
 let magnification = 1. (* visual scaling multiplier *)
 
@@ -27,7 +28,7 @@ let drawDyingFrog ctx rect leftInAnimation =
   let y = if row > 7 && row < 13 then 227 else 276 in
   let frameXs = [ 230; 275; 322; 358 ] in
   let framesLength = 4 in
-  let frame_duration = float_of_int frogAnimationLength /. 4. in
+  let frame_duration = float_of_int frog_animation_length /. 4. in
   let frame =
     min (framesLength - 1)
       (framesLength
@@ -124,7 +125,7 @@ let drawTimer ctx world =
   Canvas.set_fill_style ctx "rgb(49,220,39)";
   let pixels =
     int_of_float
-      ((float_of_int world.timer /. float_of_int startWorld.timer)
+      ((float_of_int world.timer /. float_of_int start_timer_ms)
        *. (float_of_int width /. 2.5))
   in
   Canvas.fill_rect ctx
@@ -157,7 +158,7 @@ let drawCompletedEndzones ctx world =
         Canvas.draw_image ctx goalSprite ~source_x:0. ~source_y:0.
           ~source_w:34. ~source_h:40. ~dx:rect.x
           ~dy:(float_of_int (tileSize * 2)) ~d_w:28. ~d_h:32.)
-    endzoneRects
+    endzone_rects
 
 let drawBoundingBoxes ctx world =
   let frogBoxColor = ref "red" in
@@ -207,8 +208,8 @@ let drawBackground ctx =
 
 let render ctx (world : worldT) =
   drawBackground ctx;
-  if input.grid then drawGrid ctx;
-  if input.bbox then drawBoundingBoxes ctx world;
+  if world.input.grid then drawGrid ctx;
+  if world.input.bbox then drawBoundingBoxes ctx world;
   drawGoal ctx;
   drawGrass ctx (getYForRow 2);
   drawGrass ctx (getYForRow 8);
