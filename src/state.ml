@@ -1,62 +1,74 @@
-external toUnsafe : 'a -> < .. > Js.t = "%identity"
-
+open Js_of_ocaml
 open Utils
 open Types
 
-let savedHighScore = match (Dom.Storage.getItem "highscore" Dom.Storage.localStorage) with
-  | Some n -> int_of_string n;
-  | None -> 0
-;;
+let read_local_storage key =
+  match Js.Optdef.to_option Dom_html.window##.localStorage with
+  | None -> None
+  | Some storage ->
+    Js.Opt.to_option (storage##getItem (Js.string key)) |> Option.map Js.to_string
+
+let write_local_storage key value =
+  match Js.Optdef.to_option Dom_html.window##.localStorage with
+  | None -> ()
+  | Some storage -> ignore (storage##setItem (Js.string key) (Js.string value))
+
+let savedHighScore =
+  match read_local_storage "highscore" with Some n -> int_of_string n | None -> 0
 
 (* Represents the values of relevant key bindings. *)
-let input = {
-  direction = None;
-  bbox = false;
-  grid = false;
-};;
+let input = { direction = None; bbox = false; grid = false }
 
 (* Keydown event handler translates a key press *)
-let keydown (evt:Dom.event) =
-  match (toUnsafe evt)##keyCode with
-  | 38 | 32 | 87 -> input.direction <- Some Up
-  | 39 | 68 -> input.direction <- Some Right
-  | 37 | 65 -> input.direction <- Some Left
-  | 40 | 83 -> input.direction <- Some Down
-  | 66 -> input.bbox <- (not input.bbox)
-  | 71 -> input.grid <- (not input.grid)
-  | _ -> Js.log ("did not find nothing" ^ ((toUnsafe evt)##keyCode))
-;;
+let keydown (evt : Dom_html.keyboardEvent Js.t) =
+  (match evt##.keyCode with
+   | 38 | 32 | 87 -> input.direction <- Some Up
+   | 39 | 68 -> input.direction <- Some Right
+   | 37 | 65 -> input.direction <- Some Left
+   | 40 | 83 -> input.direction <- Some Down
+   | 66 -> input.bbox <- not input.bbox
+   | 71 -> input.grid <- not input.grid
+   | code ->
+     Firebug.console##log
+       (Js.string ("did not find nothing" ^ string_of_int code)));
+  Js._true
 
-let xDown : int option ref = ref None;;
-let yDown : int option ref = ref None;;
+let xDown : int option ref = ref None
+let yDown : int option ref = ref None
 
-let handleTouchStart _ = 
-  ignore @@ [%raw "arguments[0].preventDefault()"];
+let handleTouchStart (evt : Dom_html.touchEvent Js.t) =
+  Dom.preventDefault evt;
+  (match Js.Optdef.to_option (evt##.touches##item 0) with
+   | Some touch ->
+     xDown := Some touch##.clientX;
+     yDown := Some touch##.clientY
+   | None -> ());
+  Js._true
 
-  xDown := Some [%raw "arguments[0].touches[0].clientX"];
-  yDown := Some [%raw "arguments[0].touches[0].clientY"];
-;;
+let handleTouchMove (evt : Dom_html.touchEvent Js.t) =
+  Dom.preventDefault evt;
+  (match (!xDown, !yDown, Js.Optdef.to_option (evt##.touches##item 0)) with
+   | Some xdwn, Some ydwn, Some touch ->
+     let xUp = touch##.clientX in
+     let yUp = touch##.clientY in
+     let xDiff = xdwn - xUp in
+     let yDiff = ydwn - yUp in
+     if abs xDiff > abs yDiff
+     then input.direction <- if xDiff > 0 then Some Left else Some Right
+     else input.direction <- if yDiff > 0 then Some Up else Some Down
+   | _ -> ());
+  Js._true
 
-let handleTouchMove _ = 
-  ignore @@ [%raw "arguments[0].preventDefault()"];
-
-  match (!xDown, !yDown) with
-  | (Some xdwn, Some ydwn) ->
-    let xUp = [%raw "arguments[0].touches[0].clientX"] in
-    let yUp = [%raw "arguments[0].touches[0].clientY"] in
-    let xDiff = xdwn - xUp in
-    let yDiff = ydwn - yUp in
-    if abs xDiff > abs yDiff then 
-      input.direction <- if xDiff > 0 then Some Left else Some Right
-    else
-      (input.direction <- if yDiff > 0 then Some Up else Some Down);
-
-  | (_,_) -> ();
-;;
-
-(Webapi.Dom.Window.addEventListener "touchstart" handleTouchStart Webapi.Dom.window );;
-(Webapi.Dom.Window.addEventListener "touchmove" handleTouchMove Webapi.Dom.window );;
-(Webapi.Dom.Window.addEventListener "keydown" keydown Webapi.Dom.window );;
+let () =
+  ignore
+    (Dom_html.addEventListener Dom_html.window Dom_html.Event.touchstart
+       (Dom_html.handler handleTouchStart) Js._false);
+  ignore
+    (Dom_html.addEventListener Dom_html.window Dom_html.Event.touchmove
+       (Dom_html.handler handleTouchMove) Js._false);
+  ignore
+    (Dom_html.addEventListener Dom_html.window Dom_html.Event.keydown
+       (Dom_html.handler keydown) Js._false)
 
 let frogAnimationLength = 1000;;
 let startWorld : worldT = { 
@@ -165,7 +177,7 @@ let makeLaneObject ((row, laneConfig): (int * laneConfigT)) =
   };;
 
 let getJitter () = Random.int 1000 ;;
-let getJitterFromNow () = (int_of_float (Js.Date.now ())) + (getJitter ());;
+let getJitterFromNow () = int_of_float (now_ms ()) + getJitter ();;
 
 (* velocities is the number of seconds it takes to cross the screen. the smaller the faster *)
 let laneConfig = [
@@ -226,7 +238,7 @@ let rejectUnderWaterTurtles laneObjects = List.filter
     laneObjects
 ;;
 
-let handleDeathCheck (world, dt, {laneCollisions} as tmp) = 
+let handleDeathCheck (world, dt, ({ laneCollisions; _ } as tmp)) =
   let hasCarCollision = List.exists isCar laneCollisions in
   let isInWater = laneCollisions |> rejectUnderWaterTurtles |> List.length = 0 && 
                   (getRowForY (int_of_float world.frog.rect.y)) > 7 && 
@@ -301,8 +313,8 @@ let handleScoreUpdate (world, dt, tmp) =
 *) 
 let handleHighScoreCheck (world, dt, tmp) = 
   let highscore = if world.score > world.highscore then (
-      (Dom.Storage.setItem "highscore" (string_of_int world.score) Dom.Storage.localStorage);
-      world.score;
+      write_local_storage "highscore" (string_of_int world.score);
+      world.score
     ) else world.highscore in
   let newWorld = {world with highscore} in
   (newWorld, dt, tmp)
