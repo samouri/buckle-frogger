@@ -68,6 +68,53 @@ module Window = struct
        Dom_html.window##.onload := Dom_html.handler handler)
 end
 
+module Storage = struct
+  let get key =
+    match Js.Optdef.to_option Dom_html.window##.localStorage with
+    | None -> None
+    | Some storage ->
+      Js.Opt.to_option (storage##getItem (Js.string key)) |> Option.map Js.to_string
+
+  let set key value =
+    match Js.Optdef.to_option Dom_html.window##.localStorage with
+    | None -> ()
+    | Some storage -> ignore (storage##setItem (Js.string key) (Js.string value))
+end
+
+module Input_events = struct
+  let on_keydown f =
+    let handler (evt : Dom_html.keyboardEvent Js.t) =
+      f evt##.keyCode;
+      Js._false
+    in
+    ignore
+      (Dom_html.addEventListener Dom_html.window Dom_html.Event.keydown
+         (Dom_html.handler handler) Js._false)
+
+  let on_touch ~start ~move =
+    let to_int number = int_of_float (Js.float_of_number number) in
+    let handle_touch_start (evt : Dom_html.touchEvent Js.t) =
+      Dom.preventDefault evt;
+      (match Js.Optdef.to_option (evt##.touches##item 0) with
+       | Some touch -> start (to_int touch##.clientX, to_int touch##.clientY)
+       | None -> ());
+      Js._false
+    in
+    let handle_touch_move (evt : Dom_html.touchEvent Js.t) =
+      Dom.preventDefault evt;
+      (match Js.Optdef.to_option (evt##.touches##item 0) with
+       | Some touch -> move (to_int touch##.clientX, to_int touch##.clientY)
+       | None -> ());
+      Js._false
+    in
+    ignore
+      (Dom_html.addEventListener Dom_html.window Dom_html.Event.touchstart
+         (Dom_html.handler handle_touch_start) Js._false);
+    ignore
+      (Dom_html.addEventListener Dom_html.window Dom_html.Event.touchmove
+         (Dom_html.handler handle_touch_move) Js._false)
+end
+
 module Console = struct
   let log message = Console.console##log (Js.string message)
 end
