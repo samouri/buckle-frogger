@@ -21,8 +21,6 @@ let input = { direction = None; bbox = false; grid = false }
 
 (* Keydown event handler translates a key press *)
 let keydown (evt : Dom_html.keyboardEvent Js.t) =
-  Bindings.Console.log
-    (Printf.sprintf "keydown: keyCode=%d" evt##.keyCode);
   (match evt##.keyCode with
    | 38 | 32 | 87 -> input.direction <- Some Up
    | 39 | 68 -> input.direction <- Some Right
