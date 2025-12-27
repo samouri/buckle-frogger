@@ -1,3 +1,4 @@
+open Js_of_ocaml
 open Types
 
 (* function composition *)
@@ -70,19 +71,20 @@ let isRectOutOfBounds rect =
 
 let isRectInBounds =  not << isRectOutOfBounds;;
 
+let now_ms () : float =
+  let date = Js.Unsafe.get Js.Unsafe.global "Date" in
+  let now_fn = Js.Unsafe.get date "now" in
+  Js.float_of_number (Js.Unsafe.fun_call now_fn [||])
 
-external spritesUrl: string = "../assets/frogger_sprites2.png" [@@bs.module];;
-external frogGoalUrl: string = "../assets/goal_frog_0.png" [@@bs.module];;
-external lifeUrl: string = "../assets/life.png" [@@bs.module];;
 
-let spriteSheet = Webapi.Dom.HtmlImageElement.make ();;
-(Webapi.Dom.HtmlImageElement.src spriteSheet spritesUrl);;
+let create_image src =
+  let image = Dom_html.createImg Dom_html.document in
+  image##.src := Js.string src;
+  image
 
-let goalSprite = Webapi.Dom.HtmlImageElement.make ();;
-(Webapi.Dom.HtmlImageElement.src goalSprite frogGoalUrl);;
-
-let lifeSprite = Webapi.Dom.HtmlImageElement.make ();;
-(Webapi.Dom.HtmlImageElement.src lifeSprite lifeUrl);;
+let spriteSheet = create_image "assets/frogger_sprites2.png";;
+let goalSprite = create_image "assets/goal_frog_0.png";;
+let lifeSprite = create_image "assets/life.png";;
 
 let makeSpriteImage ?(number=1) ?(height=30) xStart yStart frames frameSpeed width = { 
   xStart; yStart; frames; frameSpeed; width; height; number;
