@@ -1,1 +1,5 @@
-type t = Up | Down | Left | Right
+type t =
+  | Up
+  | Down
+  | Left
+  | Right

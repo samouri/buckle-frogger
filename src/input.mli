@@ -1,8 +1,8 @@
-type t = {
-  direction : Direction.t option;
-  bbox : bool;
-  grid : bool;
-}
+type t =
+  { direction : Direction.t option
+  ; bbox : bool
+  ; grid : bool
+  }
 
 val empty : t
 val set_direction : t -> Direction.t -> t
