@@ -377,7 +377,8 @@ let find_collisions (game, dt, tmp) =
 let handle_score_update (game, dt, tmp) =
   let new_frog_row = get_row_for_y (int_of_float game.frog.rect.y) in
   let score = game.score + if new_frog_row > game.max_row then 10 else 0 in
-  let new_game = { game with score; max_row = max new_frog_row game.max_row } in
+  let highscore = max game.highscore score in
+  let new_game = { game with score; highscore; max_row = max new_frog_row game.max_row } in
   new_game, dt, tmp
 ;;
 
