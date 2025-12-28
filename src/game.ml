@@ -23,10 +23,10 @@ type event =
 let frog_animation_length = 1000
 let start_timer_ms = 30 * 1000
 
-let start_world ~highscore ~input : t =
+let start_game ~highscore ~input : t =
   { frog =
       { rect =
-          { x = float_of_int (tileSize * ((cols / 2) - 1))
+          { x = float_of_int (tile_size * ((cols / 2) - 1))
           ; y = float_of_int (get_y_for_row 2 + 8)
           ; width = 10
           ; height = 10
@@ -50,9 +50,10 @@ let start_world ~highscore ~input : t =
 let endzone_rects =
   List.map
     (fun i ->
-      let x = float_of_int ((3 * i * tileSize) + halfTileSize - (1 * i)) in
+      let x = float_of_int ((3 * i * tile_size) + half_tile_size - (1 * i)) in
       let rect =
-        Rect.{ x; y = float_of_int (tileSize * 2); width = tileSize; height = tileSize }
+        Rect.
+          { x; y = float_of_int (tile_size * 2); width = tile_size; height = tile_size }
       in
       i, rect)
     (0 <-> 4)
@@ -84,27 +85,27 @@ let update_obj (obj : Lane_object.t) dt : Lane_object.t =
   }
 ;;
 
-let isCar (obj : Lane_object.t) =
+let is_car (obj : Lane_object.t) =
   match obj.obj_type with
   | Car -> true
   | _ -> false
 ;;
 
-let twoTurtleCount = ref 0
-let threeTurtleCount = ref 0
+let two_turtle_count = ref 0
+let three_turtle_count = ref 0
 
 let make_lane_object ((row, lane_config) : int * Lane_config.t) : Lane_object.t =
   let direction : Direction.t = if lane_config.velocity > 0. then Right else Left in
   let obj_type, img =
     match row with
     | 9 ->
-      threeTurtleCount := !threeTurtleCount + 1;
-      if !threeTurtleCount mod 4 = 0
+      three_turtle_count := !three_turtle_count + 1;
+      if !three_turtle_count mod 4 = 0
       then Sprite.DivingTurtles, diving_three_turtles
       else lane_config.obj_type, three_turtle_image
     | 12 ->
-      twoTurtleCount := !twoTurtleCount + 1;
-      if !twoTurtleCount mod 4 = 0
+      two_turtle_count := !two_turtle_count + 1;
+      if !two_turtle_count mod 4 = 0
       then DivingTurtles, diving_two_turtles
       else lane_config.obj_type, two_turtle_image
     | _ -> lane_config.obj_type, Lane_config.(lane_config.img)
@@ -212,13 +213,13 @@ let reset_spawn_times now =
 ;;
 
 (* state updates are modeled as a series of transformations to state.
- * the fn signature is: (world, dt, temp) -> (nextWorld, dt, temp).
- * world is all of current state, dt is time that has passed since the last update, and temp is working memory for passes to communicate through.
+ * the fn signature is: (game, dt, temp) -> (next_game, dt, temp).
+ * game is all of current state, dt is time that has passed since the last update, and temp is working memory for passes to communicate through.
  * for example, collisions are detected early on in the process and then that work is reused in various other passes.
  *)
 
-let update_frog (input : Input.t) (world, dt, tmp) =
-  let frog = world.frog in
+let update_frog (input : Input.t) (game, dt, tmp) =
+  let frog = game.frog in
   let floated_x =
     try
       let floatie_thing =
@@ -233,13 +234,13 @@ let update_frog (input : Input.t) (world, dt, tmp) =
     with
     | Not_found -> 0.
   in
-  let newFrog =
-    if isSome frog.left_in_animation
-    then world.frog
+  let new_frog =
+    if is_some frog.left_in_animation
+    then game.frog
     else if frog.left_in_jump > 0.
     then (
       let distance_to_travel =
-        min (float_of_int tileSize *. (float_of_int dt /. 100.)) frog.left_in_jump
+        min (float_of_int tile_size *. (float_of_int dt /. 100.)) frog.left_in_jump
       in
       { frog with
         rect =
@@ -272,7 +273,7 @@ let update_frog (input : Input.t) (world, dt, tmp) =
           { frog.rect with
             x =
               (frog.rect.x
-               +. (float_of_int tileSize
+               +. (float_of_int tile_size
                    *.
                    match direction with
                    | Left -> -1.
@@ -280,7 +281,7 @@ let update_frog (input : Input.t) (world, dt, tmp) =
                    | _ -> 0.))
           ; y =
               (frog.rect.y
-               +. (float_of_int tileSize
+               +. (float_of_int tile_size
                    *.
                    match direction with
                    | Down -> 1.
@@ -288,133 +289,133 @@ let update_frog (input : Input.t) (world, dt, tmp) =
                    | _ -> 0.))
           }
         in
-        let is_valid = isRectInBounds next_rect in
+        let is_valid = is_rect_in_bounds next_rect in
         if is_valid
-        then { frog with direction; left_in_jump = float_of_int tileSize }
+        then { frog with direction; left_in_jump = float_of_int tile_size }
         else frog)
   in
-  { world with frog = newFrog }, dt, tmp
+  { game with frog = new_frog }, dt, tmp
 ;;
 
-let reject_under_water_turtles (laneObjects : Lane_object.t list) =
+let reject_under_water_turtles (lane_objects : Lane_object.t list) =
   List.filter
     (fun (obj : Lane_object.t) ->
       (not (obj.obj_type = Sprite.DivingTurtles))
       || not (floor (obj.frame_index /. 1000.) = 5.))
-    laneObjects
+    lane_objects
 ;;
 
-let handle_death_check (world, dt, ({ Temp.lane_collisions; _ } as tmp)) =
-  let hasCarCollision = List.exists isCar lane_collisions in
-  let isInWater =
+let handle_death_check (game, dt, ({ Temp.lane_collisions; _ } as tmp)) =
+  let has_car_collision = List.exists is_car lane_collisions in
+  let is_in_water =
     lane_collisions |> reject_under_water_turtles |> List.length = 0
-    && get_row_for_y (int_of_float world.frog.rect.y) > 7
-    && world.frog.left_in_jump = 0.
+    && get_row_for_y (int_of_float game.frog.rect.y) > 7
+    && game.frog.left_in_jump = 0.
   in
-  let isOutOfBounds = isRectOutOfBounds world.frog.rect in
-  let timerIsUp = world.timer <= 0 in
-  let isDead = hasCarCollision || isInWater || timerIsUp || isOutOfBounds in
+  let is_out_of_bounds = is_rect_out_of_bounds game.frog.rect in
+  let timer_is_up = game.timer <= 0 in
+  let is_dead = has_car_collision || is_in_water || timer_is_up || is_out_of_bounds in
   (* either start an animation, or handle death scenario once animation is over *)
-  let newWorld =
-    match isDead, Frog.(world.frog.left_in_animation), world.lives with
-    | false, None, _ -> world
+  let new_game =
+    match is_dead, Frog.(game.frog.left_in_animation), game.lives with
+    | false, None, _ -> game
     | true, None, _ ->
-      { world with
-        frog = Frog.{ world.frog with left_in_animation = Some frog_animation_length }
+      { game with
+        frog = Frog.{ game.frog with left_in_animation = Some frog_animation_length }
       }
-    | _, Some 0, 1 -> { world with state = Lost }
+    | _, Some 0, 1 -> { game with state = Lost }
     | _, Some 0, n ->
-      { world with
-        frog = (start_world ~highscore:world.highscore ~input:world.input).frog
+      { game with
+        frog = (start_game ~highscore:game.highscore ~input:game.input).frog
       ; timer = start_timer_ms
       ; lives = n - 1
       }
     | _, Some n, _ ->
-      { world with frog = { world.frog with left_in_animation = Some (max 0 (n - dt)) } }
+      { game with frog = { game.frog with left_in_animation = Some (max 0 (n - dt)) } }
   in
-  newWorld, dt, tmp
+  new_game, dt, tmp
 ;;
 
-let handle_game_win_check (world, dt, tmp) =
-  let allGoalsFilled = not (List.exists (fun (_, boo) -> not boo) world.endzone) in
-  if allGoalsFilled then { world with state = Won }, dt, tmp else world, dt, tmp
+let handle_game_win_check (game, dt, tmp) =
+  let all_goals_filled = not (List.exists (fun (_, boo) -> not boo) game.endzone) in
+  if all_goals_filled then { game with state = Won }, dt, tmp else game, dt, tmp
 ;;
 
-let handle_endzone_check (world, dt, tmp) =
-  let intersectsWithFrog (_, rect) = intersects world.frog.rect rect in
-  let endzone_collision = find_opt intersectsWithFrog endzone_rects in
+let handle_endzone_check (game, dt, tmp) =
+  let intersects_with_frog (_, rect) = intersects game.frog.rect rect in
+  let endzone_collision = find_opt intersects_with_frog endzone_rects in
   match endzone_collision with
-  | None -> world, dt, tmp
-  | Some (matchedI, _) ->
-    let already_filled = List.assoc matchedI world.endzone in
-    let endzone = List.map (fun (i, curr) -> i, curr || matchedI = i) world.endzone in
-    let newWorld =
+  | None -> game, dt, tmp
+  | Some (matched_idx, _) ->
+    let already_filled = List.assoc matched_idx game.endzone in
+    let endzone = List.map (fun (i, curr) -> i, curr || matched_idx = i) game.endzone in
+    let new_game =
       if already_filled
-      then world
+      then game
       else
-        { world with
-          frog = (start_world ~highscore:world.highscore ~input:world.input).frog
+        { game with
+          frog = (start_game ~highscore:game.highscore ~input:game.input).frog
         ; timer = start_timer_ms
         ; max_row = 1
-        ; score = world.score + 200 + (world.timer / 1000)
+        ; score = game.score + 200 + (game.timer / 1000)
         ; endzone
         }
     in
-    newWorld, dt, tmp
+    new_game, dt, tmp
 ;;
 
-let find_collisions (world, dt, tmp) =
+let find_collisions (game, dt, tmp) =
   let collisions =
     List.filter
-      (fun (obj : Lane_object.t) -> intersects obj.rect world.frog.rect)
-      world.objects
+      (fun (obj : Lane_object.t) -> intersects obj.rect game.frog.rect)
+      game.objects
   in
-  let newTmp = Temp.{ tmp with lane_collisions = collisions } in
-  world, dt, newTmp
+  let new_tmp = Temp.{ tmp with lane_collisions = collisions } in
+  game, dt, new_tmp
 ;;
 
-let handle_score_update (world, dt, tmp) =
-  let new_frog_row = get_row_for_y (int_of_float world.frog.rect.y) in
-  let score = world.score + if new_frog_row > world.max_row then 10 else 0 in
-  let newWorld = { world with score; max_row = max new_frog_row world.max_row } in
-  newWorld, dt, tmp
+let handle_score_update (game, dt, tmp) =
+  let new_frog_row = get_row_for_y (int_of_float game.frog.rect.y) in
+  let score = game.score + if new_frog_row > game.max_row then 10 else 0 in
+  let new_game = { game with score; max_row = max new_frog_row game.max_row } in
+  new_game, dt, tmp
 ;;
 
-let shrink_timer (world, dt, tmp) =
-  let timer = world.timer - dt in
-  let newWorld = { world with timer } in
-  newWorld, dt, tmp
+let shrink_timer (game, dt, tmp) =
+  let timer = game.timer - dt in
+  let new_game = { game with timer } in
+  new_game, dt, tmp
 ;;
 
-let update_lane_objects (world, dt, tmp) =
-  let filterOutOfBounds =
-    List.filter (fun obj -> isRectInBounds Lane_object.(obj.rect))
+let update_lane_objects (game, dt, tmp) =
+  let filter_out_of_bounds =
+    List.filter (fun obj -> is_rect_in_bounds Lane_object.(obj.rect))
   in
   let moved_lane_objects =
-    List.map (fun o -> update_obj o dt) world.objects |> filterOutOfBounds
+    List.map (fun o -> update_obj o dt) game.objects |> filter_out_of_bounds
   in
   let spawned_lane_objects =
     List.map
-      (fun (rowNum, (cfg : Lane_config.t)) ->
+      (fun (row_num, (cfg : Lane_config.t)) ->
         if Temp.(tmp.now) > cfg.next_spawn_time
         then (
           cfg.next_spawn_time
           <- get_jitter_from_now Temp.(tmp.now)
              + int_of_float (abs_float cfg.velocity *. 1000. /. cfg.objects_at_once_ish);
-          Some (make_lane_object (rowNum, cfg)))
+          Some (make_lane_object (row_num, cfg)))
         else None)
       lane_config
     |> deoptionalize
   in
   let objects = moved_lane_objects @ spawned_lane_objects in
-  let newWorld = { world with objects } in
-  newWorld, dt, tmp
+  let new_game = { game with objects } in
+  new_game, dt, tmp
 ;;
 
-let get_world (world, _, _) : t = world
+let get_game (game, _, _) : t = game
 
-let step_world input world now dt : t =
-  (world, dt, { lane_collisions = []; now })
+let step_game input game now dt : t =
+  (game, dt, { lane_collisions = []; now })
   |> find_collisions
   |> update_frog input
   |> update_lane_objects
@@ -423,27 +424,27 @@ let step_world input world now dt : t =
   |> handle_endzone_check
   |> handle_game_win_check
   |> handle_score_update
-  |> get_world
+  |> get_game
 ;;
 
 let init ~highscore =
   reset_spawn_times 0;
-  start_world ~highscore ~input:Input.empty
+  start_game ~highscore ~input:Input.empty
 ;;
 
-let step world ~input ~now_ms ~dt_ms =
-  let world = { world with input } in
-  let next_world = step_world input world now_ms dt_ms in
+let step game ~input ~now_ms ~dt_ms =
+  let game = { game with input } in
+  let next_game = step_game input game now_ms dt_ms in
   let events =
     []
     |> (fun evs ->
-         if next_world.score > world.score
-         then Scored (next_world.score - world.score) :: evs
+         if next_game.score > game.score
+         then Scored (next_game.score - game.score) :: evs
          else evs)
     |> fun evs ->
-    if next_world.highscore > world.highscore
-    then Highscore_updated next_world.highscore :: evs
+    if next_game.highscore > game.highscore
+    then Highscore_updated next_game.highscore :: evs
     else evs
   in
-  next_world, List.rev events
+  next_game, List.rev events
 ;;
