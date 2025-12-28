@@ -25,7 +25,7 @@ let ( <-> ) i j =
 
 let rec repeat s n = if n = 0 then "" else s ^ repeat s (n - 1)
 
-let padWithZeros (str : string) (n : int) =
+let pad_with_zeros (str : string) (n : int) =
   let strlen = String.length str in
   if strlen >= n then str else repeat "0" (n - strlen) ^ str
 ;;
