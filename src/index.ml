@@ -33,12 +33,12 @@ let handle_touch_move (x, y) =
     else update_direction (if y_diff > 0 then Up else Down)
 ;;
 
-let start_playing (world : Game.t) =
-  let fresh = Game.init ~highscore:world.highscore in
+let start_playing (game : Game.t) =
+  let fresh = Game.init ~highscore:game.highscore in
   { fresh with state = Playing }
 ;;
 
-let rec gameloop (canvas : Canvas.t) (timestamp : float) (world : Game.t) =
+let rec gameloop (canvas : Canvas.t) (timestamp : float) (game : Game.t) =
   let dt =
     match !last_time with
     | None -> 0.
@@ -47,16 +47,16 @@ let rec gameloop (canvas : Canvas.t) (timestamp : float) (world : Game.t) =
   last_time := Some timestamp;
   let now = int_of_float timestamp in
   let dt_ms = int_of_float dt in
-  (match world.state with
-   | Playing -> render canvas world
+  (match game.state with
+   | Playing -> render canvas game
    | Start -> draw_start_screen canvas
    | Won -> draw_win_screen canvas
    | Lost -> draw_lose_screen canvas);
-  let next_world, events =
-    match world.state, !input_ref.direction with
-    | Playing, _ -> Game.step world ~input:!input_ref ~now_ms:now ~dt_ms
-    | _, None -> world, []
-    | _, Some _ -> start_playing world, []
+  let next_game, events =
+    match game.state, !input_ref.direction with
+    | Playing, _ -> Game.step game ~input:!input_ref ~now_ms:now ~dt_ms
+    | _, None -> game, []
+    | _, Some _ -> start_playing game, []
   in
   List.iter
     (function
@@ -64,7 +64,7 @@ let rec gameloop (canvas : Canvas.t) (timestamp : float) (world : Game.t) =
       | _ -> ())
     events;
   input_ref := Input.clear_direction !input_ref;
-  Window.request_animation_frame (fun ts -> gameloop canvas ts next_world)
+  Window.request_animation_frame (fun ts -> gameloop canvas ts next_game)
 ;;
 
 let load () =

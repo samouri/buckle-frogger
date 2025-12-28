@@ -5,13 +5,13 @@ open Types
 (* function composition *)
 let ( << ) f g x = f (g x)
 
-let isSome = function
+let is_some = function
   | Some _ -> true
   | None -> false
 ;;
 
 let deoptionalize lst =
-  List.filter isSome lst
+  List.filter is_some lst
   |> List.map (function
     | Some x -> x
     | None -> assert false)
@@ -43,10 +43,10 @@ let height = 480
 let width = 420
 let rows = 16
 let cols = 14
-let tileSize = height / rows
-let halfTileSize = tileSize / 2
-let get_row_for_y y = (height - y) / tileSize
-let get_y_for_row row = height - (row * tileSize)
+let tile_size = height / rows
+let half_tile_size = tile_size / 2
+let get_row_for_y y = (height - y) / tile_size
+let get_y_for_row row = height - (row * tile_size)
 
 let intersects (rect1 : Rect.t) (rect2 : Rect.t) =
   let bottom1 = rect1.y +. float_of_int rect1.height in
@@ -60,13 +60,13 @@ let intersects (rect1 : Rect.t) (rect2 : Rect.t) =
   not (bottom1 < top2 || top1 > bottom2 || right1 < left2 || left1 > right2)
 ;;
 
-let isRectOutOfBounds (rect : Rect.t) =
+let is_rect_out_of_bounds (rect : Rect.t) =
   let x = int_of_float rect.x in
   let y = int_of_float rect.y in
-  x + rect.width < 0 || x > width || y + rect.height < 0 || y > height - tileSize
+  x + rect.width < 0 || x > width || y + rect.height < 0 || y > height - tile_size
 ;;
 
-let isRectInBounds = not << isRectOutOfBounds
+let is_rect_in_bounds = not << is_rect_out_of_bounds
 
 let now_ms () : float =
   let global = Js.Unsafe.global in
