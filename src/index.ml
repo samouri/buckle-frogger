@@ -2,7 +2,6 @@ open Bindings
 open Game
 open Input
 open Render
-open Types
 open Utils
 
 let last_time : float option ref = ref None
@@ -36,7 +35,7 @@ let handle_touch_move (x, y) =
 
 let start_playing (world : Game.t) =
   let fresh = Game.init ~highscore:world.highscore in
-  World.{ fresh with state = Playing }
+  { fresh with state = Playing }
 ;;
 
 let rec gameloop (canvas : Canvas.t) (timestamp : float) (world : Game.t) =

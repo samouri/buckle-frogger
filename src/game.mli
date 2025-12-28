@@ -1,4 +1,17 @@
-type t = Types.World.t
+open Types
+
+type t = 
+    { frog : Frog.t
+    ; input : Input.t
+    ; objects : Lane_object.t list
+    ; state : Game_state.t
+    ; lives : int
+    ; score : int
+    ; highscore : int
+    ; max_row : int
+    ; timer : int
+    ; endzone : (int * bool) list
+    }
 
 type event =
   | Start

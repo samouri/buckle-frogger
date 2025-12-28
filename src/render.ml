@@ -5,25 +5,21 @@ open Game
 
 let magnification = 1. (* visual scaling multiplier *)
 
-let draw_lane_object ctx sprite =
-  let frame_calc = floor (Lane_object.(sprite.frame_index) /. 1000.) in
-  let img = Lane_object.(sprite.img) in
-  let start_x =
-    float_of_int Sprite_image.(img.x_start) +. (frame_calc *. float_of_int img.width)
-  in
+let draw_lane_object (ctx : Canvas.t) (sprite : Lane_object.t) =
+  let frame_calc = floor (sprite.frame_index /. 1000.) in
+  let img = sprite.img in
+  let start_x = float_of_int img.x_start +. (frame_calc *. float_of_int img.width) in
   List.iter
     (fun i ->
       Canvas.draw_image
         ctx
         sprite_sheet
         ~source_x:start_x
-        ~source_y:(float_of_int Sprite_image.(img.y_start))
-        ~source_w:(float_of_int Sprite_image.(img.width))
-        ~source_h:(float_of_int Sprite_image.(img.height))
-        ~dx:
-          ((Rect.(Lane_object.(sprite.rect).x) +. float_of_int (img.width * i))
-           *. magnification)
-        ~dy:Rect.(Lane_object.(sprite.rect).y)
+        ~source_y:(float_of_int img.y_start)
+        ~source_w:(float_of_int img.width)
+        ~source_h:(float_of_int img.height)
+        ~dx:((sprite.rect.x +. float_of_int (img.width * i)) *. magnification)
+        ~dy:sprite.rect.y
         ~d_w:(magnification *. float_of_int img.width)
         ~d_h:(magnification *. float_of_int tileSize))
     (0 <-> img.number - 1)
@@ -57,29 +53,27 @@ let draw_dying_frog ctx rect left_in_animation =
     ~d_h:(magnification *. float_of_int height)
 ;;
 
-let draw_frog ctx frog =
-  match Frog.(frog.left_in_animation) with
-  | Some n -> draw_dying_frog ctx Frog.(frog.rect) n
+let draw_frog ctx (frog : Frog.t) =
+  match frog.left_in_animation with
+  | Some n -> draw_dying_frog ctx frog.rect n
   | None ->
     let img =
-      match Frog.(frog.direction) with
-      | Direction.Up -> frog_up
-      | Direction.Down -> frog_down
-      | Direction.Left -> frog_left
-      | Direction.Right -> frog_right
+      match frog.direction with
+      | Up -> frog_up
+      | Down -> frog_down
+      | Left -> frog_left
+      | Right -> frog_right
     in
     let start_x =
-      float_of_int
-        (Sprite_image.(img.x_start)
-         + if Frog.(frog.left_in_jump) = 0. then 0 else img.width + 5)
+      float_of_int (img.x_start + if frog.left_in_jump = 0. then 0 else img.width + 5)
     in
     Canvas.draw_image
       ctx
       sprite_sheet
       ~source_x:start_x
-      ~source_y:(float_of_int Sprite_image.(img.y_start))
-      ~source_w:(float_of_int Sprite_image.(img.width))
-      ~source_h:(float_of_int Sprite_image.(img.height))
+      ~source_y:(float_of_int img.y_start)
+      ~source_w:(float_of_int img.width)
+      ~source_h:(float_of_int img.height)
       ~dx:((Rect.(Frog.(frog.rect).x) -. 10.) *. magnification)
       ~dy:Rect.(Frog.(frog.rect).y)
       ~d_w:(magnification *. float_of_int img.width)
@@ -153,7 +147,7 @@ let rec draw_cars ctx cars =
     draw_cars ctx tl
 ;;
 
-let draw_lives ctx world =
+let draw_lives ctx (world : Game.t) =
   Canvas.set_fill_style ctx "red";
   List.iter
     (fun i ->
@@ -168,14 +162,14 @@ let draw_lives ctx world =
         ~dy:(float_of_int (get_y_for_row 1))
         ~d_w:28.
         ~d_h:32.)
-    (0 <-> World.(world.lives) - 2)
+    (0 <-> world.lives - 2)
 ;;
 
-let draw_timer ctx world =
+let draw_timer ctx (world : Game.t) =
   Canvas.set_fill_style ctx "rgb(49,220,39)";
   let pixels =
     int_of_float
-      (float_of_int World.(world.timer)
+      (float_of_int world.timer
        /. float_of_int start_timer_ms
        *. (float_of_int width /. 2.5))
   in
@@ -193,9 +187,9 @@ let draw_timer ctx world =
     "TIME"
 ;;
 
-let draw_score ctx world =
-  let scoreText = padWithZeros (string_of_int World.(world.score)) 5 in
-  let highscoreText = padWithZeros (string_of_int World.(world.highscore)) 5 in
+let draw_score ctx (world : Game.t) =
+  let scoreText = padWithZeros (string_of_int world.score) 5 in
+  let highscoreText = padWithZeros (string_of_int world.highscore) 5 in
   Canvas.set_fill_style ctx "rgb(222,222,246)";
   Canvas.fill_text
     ctx
@@ -220,10 +214,10 @@ let draw_score ctx world =
     highscoreText
 ;;
 
-let draw_completed_endzones ctx world =
+let draw_completed_endzones ctx (world : Game.t) =
   List.iter
     (fun (i, rect) ->
-      if List.assoc i World.(world.endzone)
+      if List.assoc i world.endzone
       then
         Canvas.draw_image
           ctx
@@ -239,13 +233,13 @@ let draw_completed_endzones ctx world =
     endzone_rects
 ;;
 
-let draw_bounding_boxes ctx world =
+let draw_bounding_boxes (ctx : Canvas.t) (world : Game.t) =
   let frogBoxColor = ref "red" in
   List.iter
-    (fun obj ->
-      let rect = Lane_object.(obj.rect) in
+    (fun (obj : Lane_object.t) ->
+      let rect = obj.rect in
       let color =
-        if intersects World.(world.frog.rect) rect
+        if intersects world.frog.rect rect
         then (
           frogBoxColor := "blue";
           "blue")
@@ -254,19 +248,19 @@ let draw_bounding_boxes ctx world =
       Canvas.set_stroke_style ctx color;
       Canvas.stroke_rect
         ctx
-        ~x:Rect.(rect.x)
-        ~y:Rect.(rect.y)
-        ~w:(float_of_int Rect.(rect.width))
-        ~h:(float_of_int Rect.(rect.height)))
-    World.(world.objects);
-  let rect = World.(world.frog.rect) in
+        ~x:rect.x
+        ~y:rect.y
+        ~w:(float_of_int rect.width)
+        ~h:(float_of_int rect.height))
+    world.objects;
+  let rect = world.frog.rect in
   Canvas.set_stroke_style ctx !frogBoxColor;
   Canvas.stroke_rect
     ctx
-    ~x:Rect.(rect.x)
-    ~y:Rect.(rect.y)
-    ~w:(float_of_int Rect.(rect.width))
-    ~h:(float_of_int Rect.(rect.height))
+    ~x:rect.x
+    ~y:rect.y
+    ~w:(float_of_int rect.width)
+    ~h:(float_of_int rect.height)
 ;;
 
 let draw_grid ctx =
@@ -299,17 +293,17 @@ let draw_background ctx =
     ~w:(float_of_int width)
 ;;
 
-let render ctx world =
+let render ctx (world : Game.t) =
   draw_background ctx;
-  if World.(world.input.grid) then draw_grid ctx;
-  if World.(world.input.bbox) then draw_bounding_boxes ctx world;
+  if world.input.grid then draw_grid ctx;
+  if world.input.bbox then draw_bounding_boxes ctx world;
   draw_goal ctx;
   draw_grass ctx (get_y_for_row 2);
   draw_grass ctx (get_y_for_row 8);
   draw_lives ctx world;
   draw_timer ctx world;
   draw_score ctx world;
-  draw_cars ctx World.(world.objects);
-  draw_frog ctx World.(world.frog);
+  draw_cars ctx world.objects;
+  draw_frog ctx world.frog;
   draw_completed_endzones ctx world
 ;;
